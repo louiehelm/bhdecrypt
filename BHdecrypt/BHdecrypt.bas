@@ -1,4 +1,4 @@
-'AZdecrypt 1.18
+'BHdecrypt 1.18
 '--------------
 'possible issue with crib grid and gcc 8.1.0
 
@@ -742,18 +742,18 @@ declare sub generate_permutations(n as long)
 
 'declare solvers
 '------------------------------------------------------------
-declare sub azdecrypt_234567810g(byval tn_ptr as any ptr)
-declare sub azdecrypt_rowbound_34567g(byval tn_ptr as any ptr)
-declare sub azdecrypt_seqhom_234567810g(byval tn_ptr as any ptr)
-declare sub azdecrypt_sparsepoly_567810g(byval tn_ptr as any ptr)
-declare sub azdecrypt_vigenere_34567810g(byval tn_ptr as any ptr)
-declare sub azdecrypt_poly_567810g(byval tn_ptr as any ptr)
-declare sub azdecrypt_mergeseqhom(byval tn_ptr as any ptr)
-declare sub azdecrypt_bigram_810g(byval tn_ptr as any ptr)
-declare sub azdecrypt_groups_810g(byval tn_ptr as any ptr)
-declare sub azdecrypt_higherorder_810g(byval tn_ptr as any ptr)
-declare sub azdecrypt_810g(byval tn_ptr as any ptr)
-declare sub azdecrypt_fast_5g(byval tn_ptr as any ptr)
+declare sub bhdecrypt_234567810g(byval tn_ptr as any ptr)
+declare sub bhdecrypt_rowbound_34567g(byval tn_ptr as any ptr)
+declare sub bhdecrypt_seqhom_234567810g(byval tn_ptr as any ptr)
+declare sub bhdecrypt_sparsepoly_567810g(byval tn_ptr as any ptr)
+declare sub bhdecrypt_vigenere_34567810g(byval tn_ptr as any ptr)
+declare sub bhdecrypt_poly_567810g(byval tn_ptr as any ptr)
+declare sub bhdecrypt_mergeseqhom(byval tn_ptr as any ptr)
+declare sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
+declare sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
+declare sub bhdecrypt_higherorder_810g(byval tn_ptr as any ptr)
+declare sub bhdecrypt_810g(byval tn_ptr as any ptr)
+declare sub bhdecrypt_fast_5g(byval tn_ptr as any ptr)
 
 'declare threads
 '------------------------------------------------------------
@@ -783,9 +783,9 @@ declare sub thread_solve_rectangles(byval none as any ptr)
 
 declare sub ext_bigram_beam_columnartransposition(byval t as short,byval l as short,byval s as short,byval kl as short)
 declare sub ext_bigram_beam_columnarrearrangement(byval t as short,byval l as short,byval s as short,byval kl as short)
-declare sub ext_azd_beam_columnarrearrangement(byval t as short,byval l as short,byval s as short,byval kl as short)
-declare sub ext_azd_beam_columnartransposition(byval t as short,byval l as short,byval s as short,byval kl as short)
-declare sub ext_azd_beam_nullsandskips(byval t as short,byval l as short,byval s as short,byval kl as short)
+declare sub ext_bhd_beam_columnarrearrangement(byval t as short,byval l as short,byval s as short,byval kl as short)
+declare sub ext_bhd_beam_columnartransposition(byval t as short,byval l as short,byval s as short,byval kl as short)
+declare sub ext_bhd_beam_nullsandskips(byval t as short,byval l as short,byval s as short,byval kl as short)
 
 'declare functions
 '------------------------------------------------------------
@@ -872,7 +872,7 @@ declare function m_repeats(cip()as long,byval l as short,byval o as short)as str
 
 'program root
 '------------------------------------------------------------
-program_name="AZdecrypt 1.18"
+program_name="BHdecrypt 1.18"
 using fb
 mainloop
 
@@ -2444,62 +2444,62 @@ sub toggle_solverthreads(array()as integer,byval length as integer,byval symbols
 					case "Substitution","Substitution + word cribs","Substitution + crib grid","Substitution + crib list"
 						select case ngram_size
 							case 2 to 7
-								thread_ptr(i)=threadcreate(@azdecrypt_234567810g,cptr(any ptr,i))
+								thread_ptr(i)=threadcreate(@bhdecrypt_234567810g,cptr(any ptr,i))
 							case 8,10
-								thread_ptr(i)=threadcreate(@azdecrypt_810g,cptr(any ptr,i))
-								'thread_ptr(i)=threadcreate(@azdecrypt_234567810g,cptr(any ptr,i))
+								thread_ptr(i)=threadcreate(@bhdecrypt_810g,cptr(any ptr,i))
+								'thread_ptr(i)=threadcreate(@bhdecrypt_234567810g,cptr(any ptr,i))
 						end select
 					case "Substitution + simple transposition","Substitution + nulls and skips","Substitution + columnar rearrangement","Substitution + columnar transposition","Substitution + units","Substitution + rectangles"
 						if solvesub_tpseqhom=0 then
 							select case ngram_size
 								case 2 to 7
-									thread_ptr(i)=threadcreate(@azdecrypt_234567810g,cptr(any ptr,i))
+									thread_ptr(i)=threadcreate(@bhdecrypt_234567810g,cptr(any ptr,i))
 								case 8,10
-									thread_ptr(i)=threadcreate(@azdecrypt_810g,cptr(any ptr,i))
-									'thread_ptr(i)=threadcreate(@azdecrypt_234567810g,cptr(any ptr,i))
+									thread_ptr(i)=threadcreate(@bhdecrypt_810g,cptr(any ptr,i))
+									'thread_ptr(i)=threadcreate(@bhdecrypt_234567810g,cptr(any ptr,i))
 							end select
 						else 'use sequential homophones
-							thread_ptr(i)=threadcreate(@azdecrypt_seqhom_234567810g,cptr(any ptr,i))
+							thread_ptr(i)=threadcreate(@bhdecrypt_seqhom_234567810g,cptr(any ptr,i))
 						end if
 					case "Substitution + monoalphabetic groups"
 						select case ngram_size
-							case 8,10:thread_ptr(i)=threadcreate(@azdecrypt_groups_810g,cptr(any ptr,i))
+							case 8,10:thread_ptr(i)=threadcreate(@bhdecrypt_groups_810g,cptr(any ptr,i))
 							case else:ui_editbox_settext(output_text,errorno2):solverexist=0
 						end select
 					case "Higher-order homophonic"
 						select case ngram_size
-							case 8,10:thread_ptr(i)=threadcreate(@azdecrypt_higherorder_810g,cptr(any ptr,i))
+							case 8,10:thread_ptr(i)=threadcreate(@bhdecrypt_higherorder_810g,cptr(any ptr,i))
 							case else:ui_editbox_settext(output_text,errorno2):solverexist=0
 						end select
 					case "Bigram substitution"
 						select case ngram_size
-							case 8,10:thread_ptr(i)=threadcreate(@azdecrypt_bigram_810g,cptr(any ptr,i))
+							case 8,10:thread_ptr(i)=threadcreate(@bhdecrypt_bigram_810g,cptr(any ptr,i))
 							case else:ui_editbox_settext(output_text,errorno2):solverexist=0
 						end select
 					case "Substitution + sequential homophones"
-						thread_ptr(i)=threadcreate(@azdecrypt_seqhom_234567810g,cptr(any ptr,i))
+						thread_ptr(i)=threadcreate(@bhdecrypt_seqhom_234567810g,cptr(any ptr,i))
 					case "Substitution + row bound","Substitution + row bound fragments" 
 						select case ngram_size
-							case 3 to 7:thread_ptr(i)=threadcreate(@azdecrypt_rowbound_34567g,cptr(any ptr,i))
+							case 3 to 7:thread_ptr(i)=threadcreate(@bhdecrypt_rowbound_34567g,cptr(any ptr,i))
 							case else:ui_editbox_settext(output_text,errornosize):solverexist=0
 						end select
 					case "Substitution + sparse polyalphabetism"
 						select case ngram_size
 							case 2 to 4:ui_editbox_settext(output_text,errornosize):solverexist=0
-							case 5 to 8,10:thread_ptr(i)=threadcreate(@azdecrypt_sparsepoly_567810g,cptr(any ptr,i))
+							case 5 to 8,10:thread_ptr(i)=threadcreate(@bhdecrypt_sparsepoly_567810g,cptr(any ptr,i))
 						end select
 					case "Substitution + polyphones [auto]","Substitution + polyphones [user]"	
 						select case ngram_size
 							case 2 to 4:ui_editbox_settext(output_text,errornosize):solverexist=0
-							case 5 to 8,10:thread_ptr(i)=threadcreate(@azdecrypt_poly_567810g,cptr(any ptr,i))
+							case 5 to 8,10:thread_ptr(i)=threadcreate(@bhdecrypt_poly_567810g,cptr(any ptr,i))
 						end select	
 					case "Substitution + vigenère","Substitution + vigenère word list"
 						select case ngram_size
 							case 2:ui_editbox_settext(output_text,errornosize):solverexist=0
-							case 3 to 8,10:thread_ptr(i)=threadcreate(@azdecrypt_vigenere_34567810g,cptr(any ptr,i))
+							case 3 to 8,10:thread_ptr(i)=threadcreate(@bhdecrypt_vigenere_34567810g,cptr(any ptr,i))
 						end select	
 					case "Merge sequential homophones"
-						thread_ptr(i)=threadcreate(@azdecrypt_mergeseqhom,cptr(any ptr,i))
+						thread_ptr(i)=threadcreate(@bhdecrypt_mergeseqhom,cptr(any ptr,i))
 				end select
 			next i
 			if solverexist=1 then erase csol
@@ -7669,7 +7669,7 @@ sub thread_batch_ngrams_substitution(byval none as any ptr)
 	update_solver_status
 	
 	dim as string oldfilter=filter
-	filter="Text files (*.azd)"+chr(0)+"*.azd*"
+	filter="Text files (*.bhd)"+chr(0)+"*.bhd*"
 	dim as string filename=ui_loadsavedialog(0,"Open n-gram batch list",filter,1,basedir+"\N-grams\Languages\")
 	filter=oldfilter
 	
@@ -7719,7 +7719,7 @@ sub thread_batch_ngrams_substitution(byval none as any ptr)
 	rand_i_max=solvesub_batchngramsrestarts
 	norm_i_max=solvesub_batchngramsrestarts
 	
-	os+="AZdecrypt batch n-grams for: "+file_name+lb
+	os+="BHdecrypt batch n-grams for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	os+="N-gram files with larger (alphabets) may exhibit "+lb
 	os+="inflated correlation percentages."+lb
@@ -8319,7 +8319,7 @@ sub thread_solve_simpletransposition(byval none as any ptr)
 				
 			do 'beam loop
 				
-				'score output modes: azdscore/ngrams/pccycles ???
+				'score output modes: bhdscore/ngrams/pccycles ???
 				
 				for i=1 to rc 'change key
 					if prevl(i)<>currl(i) then
@@ -12343,7 +12343,7 @@ sub thread_benchmark(byval none as any ptr)
 				if thread(i).score>0 then its+=1
 			
 				if timer-statustimer>1 then
-					os="AZdecrypt benchmark status: "+str(its)+"/"+str(itsmax)
+					os="BHdecrypt benchmark status: "+str(its)+"/"+str(itsmax)
 					ui_editbox_settext(output_text,os)
 					statustimer=timer
 					update_solver_status
@@ -12405,7 +12405,7 @@ sub thread_benchmark(byval none as any ptr)
 	next i
 	
 	if its=itsmax then
-		os="AZdecrypt benchmark completed:"+lb
+		os="BHdecrypt benchmark completed:"+lb
 		os+="---------------------------------------------------------"+lb
 		os+="MIPS: "+rdc(mips,5)
 		ui_editbox_settext(output_text,os)
@@ -14779,7 +14779,7 @@ sub thread_solve_genhc(byval none as any ptr)
 				extpcm_a2=1
 				extpcm_a3=l
 			end if
-			if solvesub_ctmode=0 then 'azd beam
+			if solvesub_ctmode=0 then 'bhd beam
 				ext_hc=2
 				extcip_a1=threads
 				extcip_a2=solvesub_ctdepth^solvesub_ctdepth
@@ -14807,7 +14807,7 @@ sub thread_solve_genhc(byval none as any ptr)
 				extpcm_a2=1
 				extpcm_a3=l
 			end if
-			if solvesub_ctmode=0 then 'azd beam
+			if solvesub_ctmode=0 then 'bhd beam
 				ext_hc=4
 				extcip_a1=threads
 				extcip_a2=solvesub_ctdepth^solvesub_ctdepth
@@ -15596,7 +15596,7 @@ sub thread_batch_settings(byval none as any ptr)
 							end if
 						next i
 					loop until e=0
-					o="AZdecrypt batch settings: "+right(bcsfilename,len(bcsfilename)-instrrev(bcsfilename,"\"))+lb 'output current
+					o="BHdecrypt batch settings: "+right(bcsfilename,len(bcsfilename)-instrrev(bcsfilename,"\"))+lb 'output current
 					'if nn=0 then o+=solver_file_name_ngrams+lb
 					o+=solver_file_name_ngrams+lb
 					o+="---------------------------------------------------------"+lb
@@ -16102,7 +16102,7 @@ sub thread_batch_ciphers_substitution(byval none as any ptr)
 	update_solver_status
 	
 	if batchciphers_showmsg=1 then
-		ot="AZdecrypt batch ciphers (substitution) for: "+right(filename,len(filename)-instrrev(filename,"\"))+lb
+		ot="BHdecrypt batch ciphers (substitution) for: "+right(filename,len(filename)-instrrev(filename,"\"))+lb
 		if acctest=1 then ot+=solver_file_name_ngrams+lb
 		ot+="---------------------------------------------------------"+lb
 		ot+="Items processed: "+str(items2)+lb
@@ -16438,7 +16438,7 @@ sub ext_bigram_beam_columnarrearrangement(byval t as short,byval l as short,byva
 
 end sub
 
-sub ext_azd_beam_columnarrearrangement(byval t as short,byval l as short,byval s as short,byval kl as short)
+sub ext_bhd_beam_columnarrearrangement(byval t as short,byval l as short,byval s as short,byval kl as short)
 	
 	dim as short i,j,k,x,y,bg,bbg,a,b,lpi,r1,r2
 	dim as short rbw=solvesub_ctdepth
@@ -16573,7 +16573,7 @@ sub ext_azd_beam_columnarrearrangement(byval t as short,byval l as short,byval s
 	
 end sub
 
-sub ext_azd_beam_columnartransposition(byval t as short,byval l as short,byval s as short,byval kl as short)
+sub ext_bhd_beam_columnartransposition(byval t as short,byval l as short,byval s as short,byval kl as short)
 	
 	dim as short c,i,j,x,y,bg,bbg,a,b,lpi,r1,r2
 	dim as short rbw=solvesub_ctdepth
@@ -16707,7 +16707,7 @@ sub ext_azd_beam_columnartransposition(byval t as short,byval l as short,byval s
 
 end sub
 
-sub ext_azd_beam_nullsandskips(byval t as short,byval l as short,byval s as short,byval kl as short)
+sub ext_bhd_beam_nullsandskips(byval t as short,byval l as short,byval s as short,byval kl as short)
 	
 	dim as short i,j,k,x,y,e,p,a,b,lpi,r0,r1,r2,r3,r4,nll,skp
 	dim as short ce,shlen
@@ -17607,7 +17607,7 @@ sub thread_batch_ciphers_mergeseqhom(byval none as any ptr)
 	update_solver_status
 	
 	dim as string ot
-	ot+="AZdecrypt batch ciphers (merge seq. homophones) for: "+right(filename,len(filename)-instrrev(filename,"\"))+lb
+	ot+="BHdecrypt batch ciphers (merge seq. homophones) for: "+right(filename,len(filename)-instrrev(filename,"\"))+lb
 	ot+="---------------------------------------------------------"+lb
 	ot+="Items processed: "+str(items)+lb
 	ot+="Average score: "+rdc(solvesub_avgscore/items,5)+lb
@@ -19022,7 +19022,7 @@ sub thread_combine(byval none as any ptr)
 	
 	ui_editbox_settext(output_text,"Processing table, please wait...")
 	
-	b+="AZdecrypt combine statistics for: "+file_name+lb
+	b+="BHdecrypt combine statistics for: "+file_name+lb
 	b+="---------------------------------------------------------"+lb
 	
 	dim as double avg1,avg2,mean,variance,sd
@@ -19668,7 +19668,7 @@ sub stats_unigrams
 	'm_bigramstructure(info(),l,s,dx,dy,1,10)
 	'm_bigramstructure(info(),l,s,dx,dy,1,29)
 	
-	os+="AZdecrypt unigrams stats for: "+file_name+lb
+	os+="BHdecrypt unigrams stats for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	os+="Length: "+str(l)+lb
 	os+="Symbols: "+str(s)+lb
@@ -19944,7 +19944,7 @@ sub stats_ngrams
 	dim as integer dy=info_y
 	dim as double avg_bigrams
 	
-	os+="AZdecrypt n-grams stats for: "+file_name+lb
+	os+="BHdecrypt n-grams stats for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	os+="Bigrams: "+str(m_bigrams(nuba(),l,s,0))+lb
 	os+="- Normalized: "+str(m_bigrams(nuba(),l,s,1))+lb
@@ -20100,7 +20100,7 @@ sub stats_observations(byval tn_ptr as any ptr)
 		end if
 	next i
 	
-	os+="AZdecrypt observations stats for: "+file_name+lb
+	os+="BHdecrypt observations stats for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	
 	for h=0 to 1
@@ -20262,7 +20262,7 @@ sub stats_symbolcyclepatterns(byval tn_ptr as any ptr)
 	n8=cs^8
 	n9=cs^9
 	
-	os+="AZdecrypt symbol cycle patterns stats for: "+file_name+lb
+	os+="BHdecrypt symbol cycle patterns stats for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	os+=str(cs)+"-symbol cycle "+str(fl)+"-gram patterns:"+lb
 	
@@ -20598,7 +20598,7 @@ sub stats_cycletypes(byval tn_ptr as any ptr)
 	
 	randomize 12345
 	
-	os+="AZdecrypt "+str(stats_nsymbolcycles)+"-symbol cycle types stats for: "+file_name+lb
+	os+="BHdecrypt "+str(stats_nsymbolcycles)+"-symbol cycle types stats for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	
 	maxcs=5
@@ -20663,7 +20663,7 @@ sub stats_cycletypes(byval tn_ptr as any ptr)
 			c1+=1
 			if timer-statustimer>1 then
 				statustimer=timer	
-				osi="AZdecrypt "+str(cs)+"-symbol cycle types: "+rdc((c1/rits)*100,2)+"% complete"+lb	
+				osi="BHdecrypt "+str(cs)+"-symbol cycle types: "+rdc((c1/rits)*100,2)+"% complete"+lb	
 				osi+="(click stop task to cancel)"
 				ui_editbox_settext(output_text,osi)
 			end if
@@ -20828,7 +20828,7 @@ sub stats_compare_symbolcyclepatterns(byval tn_ptr as any ptr)
 	'n7=cs^7
 	'n8=cs^8
 	
-	os+="AZdecrypt compare symbol cycle patterns stats for: "+file_name+lb
+	os+="BHdecrypt compare symbol cycle patterns stats for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	os+=str(cs)+"-symbol cycle "+str(fl)+"-gram patterns:"+lb
 	
@@ -20997,7 +20997,7 @@ sub stats_perfectsymbolcycles(byval tn_ptr as any ptr)
 		case 8:nsc="Perfect 8-symbol cycles"
 	end select
 	
-	os+="AZdecrypt "+lcase(nsc)+" stats for: "+file_name+lb
+	os+="BHdecrypt "+lcase(nsc)+" stats for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	select case nsymbolcycles	
 		case 2 'perfect 2-symbol cycles
@@ -21792,7 +21792,7 @@ sub stats_encodingrandomization(byval tn_ptr as any ptr)
 	end if
 	info_numerical=num
 	
-	os+="AZdecrypt encoding randomization stats for: "+file_name+lb
+	os+="BHdecrypt encoding randomization stats for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	os+="- Attempts to detect encoding randomization from the "+lb
 	os+="input given that it has sequential properties."+lb
@@ -22615,7 +22615,7 @@ sub stats_encoding
 		exit sub
 	end if
 	
-	os+="AZdecrypt encoding stats for: "+file_name+lb
+	os+="BHdecrypt encoding stats for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	os+="Midpoint shift:"+lb
 	os+="- Raw: "+str(int(m_midpointshift(nba(),l,s,0)))+lb
@@ -22844,7 +22844,7 @@ sub stats_omnidirectional(byval ng as short)
 	arg(3)=dx
 	arg(4)=dy
 	
-	os+="AZdecrypt omnidirectional "+str(ng)+"-grams stats for: "+file_name+lb
+	os+="BHdecrypt omnidirectional "+str(ng)+"-grams stats for: "+file_name+lb
 	os+="---------------------------------------------------------" '+lb
 	
 	arg(5)=1 'transpose
@@ -23013,7 +23013,7 @@ sub stats_findrearrangement(byval tn_ptr as any ptr)
 	
 	score=m_2cycles(cip(),l,s,5)
 	
-	os+="AZdecrypt find rearrangement stats for: "+file_name+lb
+	os+="BHdecrypt find rearrangement stats for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	os+="- Attempts to find a set of dimensions in which a rearrangement "+lb
 	os+="of rows or columns was applied after sequential encoding."+lb
@@ -23034,7 +23034,7 @@ sub stats_findrearrangement(byval tn_ptr as any ptr)
 		c+=1
 		if timer-frtimer>1 then
 			frtimer=timer
-			ot="AZdecrypt find rearrangement: "+rdc((c/total)*100,2)+"% complete"+lb
+			ot="BHdecrypt find rearrangement: "+rdc((c/total)*100,2)+"% complete"+lb
 			ot+="(click stop task to cancel)"
 			ui_editbox_settext(output_text,ot)
 		end if
@@ -23065,7 +23065,7 @@ sub stats_findrearrangement(byval tn_ptr as any ptr)
 		c+=1
 		if timer-frtimer>1 then
 			frtimer=timer
-			ot="AZdecrypt find rearrangement: "+rdc((c/total)*100,2)+"% complete"+lb
+			ot="BHdecrypt find rearrangement: "+rdc((c/total)*100,2)+"% complete"+lb
 			ot+="(click stop task to cancel)"
 			ui_editbox_settext(output_text,ot)
 		end if
@@ -23155,10 +23155,10 @@ sub stats_direction(byval tn_ptr as any ptr)
 	higher=1
 	
 	dim as string ps1
-	ps1="AZdecrypt plaintext direction stats for: "+file_name+lb
+	ps1="BHdecrypt plaintext direction stats for: "+file_name+lb
 	ps1+="---------------------------------------------------------"+lb	
 	dim as string es1
-	es1="AZdecrypt encoding direction stats for: "+file_name+lb
+	es1="BHdecrypt encoding direction stats for: "+file_name+lb
 	es1+="---------------------------------------------------------"+lb
 	dim as string pt1
 	pt1="- Attempts to detect the plaintext direction from "+lb
@@ -24620,7 +24620,7 @@ sub stats_keywordlength(byval tn_ptr as any ptr)
 		cip(i)=nuba(i)
 		cipr(i)=cip(i)
 	next i
-	os+="AZdecrypt vigenère keyword length stats for: "+file_name+lb
+	os+="BHdecrypt vigenère keyword length stats for: "+file_name+lb
 	os+="---------------------------------------------------------"
 	i=1
 	do
@@ -24744,7 +24744,7 @@ sub stats_compare_keymapping
 		smin=s1
 	end if
 	
-	os+="AZdecrypt compare key mapping stats for: "+file_name+lb 
+	os+="BHdecrypt compare key mapping stats for: "+file_name+lb 
 	os+="---------------------------------------------------------"+lb
 	os+=lb
 	dim as short id1(smax)
@@ -24903,7 +24903,7 @@ sub stats_compare_equalitytest
 		smin=s1
 	end if
 	
-	os+="AZdecrypt compare equality test stats for: "+file_name+lb
+	os+="BHdecrypt compare equality test stats for: "+file_name+lb
 	os+="---------------------------------------------------------"+lb
 	
 	dim as long c1rnd(l1)
@@ -25113,7 +25113,7 @@ sub stats_compare_kasiskeexamination
 		if i>0 andalso count1(1,i)>khi then khi=count1(1,i)
 	next i
 	
-	os+="AZdecrypt compare kasiski examination stats for: "+file_name+lb
+	os+="BHdecrypt compare kasiski examination stats for: "+file_name+lb
 	os+="---------------------------------------------------------"
 	for i=0 to lmax-1
 		os+=lb
@@ -25183,20 +25183,20 @@ sub stats_periodic(byval m as integer)
 		frq2(i)/=l
 	next i
 	select case m
-		case 1:os+="AZdecrypt periodic raw IOC stats for: "
-		case 2:os+="AZdecrypt periodic 2-symbol cycles stats for: "
-		case 3:os+="AZdecrypt periodic symbols stats for: "
-		case 4:os+="AZdecrypt periodic midpoint shift stats for: "
-		case 5:os+="AZdecrypt periodic unigram distance stats for: "
-		case 6:os+="AZdecrypt periodic unique unigrams stats for: "
-		case 7:os+="AZdecrypt periodic exclusive unigrams stats for: "
-		case 8:os+="AZdecrypt periodic unique unigrams versus stats for: "
-		case 9:os+="AZdecrypt periodic exclusive unigrams versus stats for: "
-		case 10:os+="AZdecrypt periodic perfect 2-symbol cycles stats for: "
-		case 11:os+="AZdecrypt periodic 3-symbol cycles stats for: "
-		case 12:os+="AZdecrypt periodic perfect 3-symbol cycles stats for: "
-		case 13:os+="AZdecrypt periodic bigrams stats for: " 
-		case 14:os+="AZdecrypt periodic self-compare chi^2 stats for: "
+		case 1:os+="BHdecrypt periodic raw IOC stats for: "
+		case 2:os+="BHdecrypt periodic 2-symbol cycles stats for: "
+		case 3:os+="BHdecrypt periodic symbols stats for: "
+		case 4:os+="BHdecrypt periodic midpoint shift stats for: "
+		case 5:os+="BHdecrypt periodic unigram distance stats for: "
+		case 6:os+="BHdecrypt periodic unique unigrams stats for: "
+		case 7:os+="BHdecrypt periodic exclusive unigrams stats for: "
+		case 8:os+="BHdecrypt periodic unique unigrams versus stats for: "
+		case 9:os+="BHdecrypt periodic exclusive unigrams versus stats for: "
+		case 10:os+="BHdecrypt periodic perfect 2-symbol cycles stats for: "
+		case 11:os+="BHdecrypt periodic 3-symbol cycles stats for: "
+		case 12:os+="BHdecrypt periodic perfect 3-symbol cycles stats for: "
+		case 13:os+="BHdecrypt periodic bigrams stats for: " 
+		case 14:os+="BHdecrypt periodic self-compare chi^2 stats for: "
 	end select
 	os+=file_name+lb
 	os+="---------------------------------------------------------"+lb
@@ -25339,7 +25339,7 @@ sub stats_outputgraphs(byval tn_ptr as any ptr)
 		next x
 	next y
 	
-	os="AZdecrypt graphs and maps for: "+file_name2+lb
+	os="BHdecrypt graphs and maps for: "+file_name2+lb
 	os+="---------------------------------------------------------"+lb
 	
 	output_colormap(dbl(),cip(),l,dx,dy,0,file_name2+" Symbol map")
@@ -26833,7 +26833,7 @@ sub thread_load_ngrambias(byval none as any ptr)
 	
 end sub
 
-sub azdecrypt_mergeseqhom(byval tn_ptr as any ptr)
+sub bhdecrypt_mergeseqhom(byval tn_ptr as any ptr)
 	
 	dim as integer tn=cint(tn_ptr)
 	thread(tn).thread_active=1
@@ -27293,7 +27293,7 @@ sub azdecrypt_mergeseqhom(byval tn_ptr as any ptr)
 	
 end sub
 
-sub azdecrypt_seqhom_234567810g(byval tn_ptr as any ptr)
+sub bhdecrypt_seqhom_234567810g(byval tn_ptr as any ptr)
 	
 	dim as integer tn=cint(tn_ptr)
 	thread(tn).thread_active=1
@@ -27838,7 +27838,7 @@ sub azdecrypt_seqhom_234567810g(byval tn_ptr as any ptr)
 	
 end sub
 
-sub azdecrypt_rowbound_34567g(byval tn_ptr as any ptr)
+sub bhdecrypt_rowbound_34567g(byval tn_ptr as any ptr)
 	
 	dim as short tn=cint(tn_ptr)
 	
@@ -28398,7 +28398,7 @@ sub azdecrypt_rowbound_34567g(byval tn_ptr as any ptr)
 	
 end sub
 
-sub azdecrypt_234567810g(byval tn_ptr as any ptr)
+sub bhdecrypt_234567810g(byval tn_ptr as any ptr)
 	
 	dim as short tn=cint(tn_ptr)
 	
@@ -28753,7 +28753,7 @@ sub azdecrypt_234567810g(byval tn_ptr as any ptr)
 	
 end sub
 
-sub azdecrypt_higherorder_810g(byval tn_ptr as any ptr)
+sub bhdecrypt_higherorder_810g(byval tn_ptr as any ptr)
 	
 	dim as short tn=cint(tn_ptr)
 	
@@ -29255,7 +29255,7 @@ sub azdecrypt_higherorder_810g(byval tn_ptr as any ptr)
 	
 end sub
 
-sub azdecrypt_bigram_810g(byval tn_ptr as any ptr)
+sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 	
 	dim as short tn=cint(tn_ptr)
 	
@@ -29800,7 +29800,7 @@ sub azdecrypt_bigram_810g(byval tn_ptr as any ptr)
 	
 end sub
 
-sub azdecrypt_810g(byval tn_ptr as any ptr)
+sub bhdecrypt_810g(byval tn_ptr as any ptr)
 	
 	dim as short tn=cint(tn_ptr)
 	
@@ -30236,7 +30236,7 @@ sub azdecrypt_810g(byval tn_ptr as any ptr)
 	
 end sub
 
-sub azdecrypt_groups_810g(byval tn_ptr as any ptr)
+sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 	
 	dim as short tn=cint(tn_ptr)
 	
@@ -30808,7 +30808,7 @@ sub azdecrypt_groups_810g(byval tn_ptr as any ptr)
 	
 end sub
 
-sub azdecrypt_poly_567810g(byval tn_ptr as any ptr)
+sub bhdecrypt_poly_567810g(byval tn_ptr as any ptr)
 	
 	dim as integer tn=cint(tn_ptr)
 	thread(tn).thread_active=1
@@ -31388,7 +31388,7 @@ sub azdecrypt_poly_567810g(byval tn_ptr as any ptr)
 	
 end sub
 
-sub azdecrypt_sparsepoly_567810g(byval tn_ptr as any ptr)
+sub bhdecrypt_sparsepoly_567810g(byval tn_ptr as any ptr)
 	
 	dim as integer tn=cint(tn_ptr)
 	thread(tn).thread_active=1
@@ -31800,7 +31800,7 @@ sub azdecrypt_sparsepoly_567810g(byval tn_ptr as any ptr)
 	
 end sub
 
-sub azdecrypt_vigenere_34567810g(byval tn_ptr as any ptr)
+sub bhdecrypt_vigenere_34567810g(byval tn_ptr as any ptr)
 	
 	dim as integer tn=cint(tn_ptr)
 	thread(tn).thread_active=1
