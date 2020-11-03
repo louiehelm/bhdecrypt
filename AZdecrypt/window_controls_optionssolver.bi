@@ -19,9 +19,13 @@ case button_optionssolver_change
 				i=ui_listbox_getcursel(list_optionssolver)
 				s=ui_listbox_gettext(list_optionssolver,i)
 				s=left(s,instr(s,":")-1)
-				dim as integer change=0
+				dim as integer mul=0,change=0
 				dim as double d=-1
 				dim as string dd=ui_editbox_gettext(editbox_optionssolver_a1)
+				if chr(asc(dd,1))="*" then 'unfinished
+					mul=1
+					d=val(right(dd,len(dd)-1))
+				end if
 				if lcase(chr(asc(dd,1)))="n" then d=0
 				if lcase(chr(asc(dd,1)))="y" then d=1
 				if d=-1 then d=val(ui_editbox_gettext(editbox_optionssolver_a1))
@@ -55,8 +59,13 @@ case button_optionssolver_change
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
 					case "(General) Iterations"
-						if d>=100000 then
-							solvesub_iterations=d
+						if d>=100000 or mul=1 then
+							if mul=0 then
+								solvesub_iterations=d
+							else
+								solvesub_iterations*=d
+								if solvesub_iterations<100000 then solvesub_iterations=100000
+							end if
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_iterations))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
@@ -156,10 +165,29 @@ case button_optionssolver_change
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(screensizecheck))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
+					case "(General) 8-gram memory limit"
+						if d>=1 and d<=1048576 then
+							solvesub_bhmaxgb=d
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_bhmaxgb)+" GB RAM")
+						else ui_editbox_settext(output_text,"Error: solver options (A1)")
+						end if
+					case "(General) 8-gram caching"
+						if d=0 or d=1 then
+							if solvesub_ngramcaching<>int(d) then change=2
+							solvesub_ngramcaching=d
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(solvesub_ngramcaching))
+						else ui_editbox_settext(output_text,"Error: solver options (A1)")
+						end if
 					case "(Batch n-grams) Iterations"
 						if d>=1 then
 							solvesub_batchngramsrestarts=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_batchngramsrestarts))
+						else ui_editbox_settext(output_text,"Error: solver options (A1)")
+						end if
+					case "(Batch ciphers) Only process ciphers with bigram repeats over"
+						if d>=0 or d<=constcip then
+							solvesub_batchciphersbigrams=d
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_batchciphersbigrams))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
 					case "(Batch ciphers & n-grams) Shutdown computer after task completion"
@@ -168,16 +196,22 @@ case button_optionssolver_change
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(solvesub_batchshutdown))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
+					case "(Batch ciphers & settings) Accuracy short circuit"
+						if d=0 or d=1 then
+							solvesub_accshortcircuit=d
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(solvesub_accshortcircuit))
+						else ui_editbox_settext(output_text,"Error: solver options (A1)")
+						end if
 					case "(Bigram substitution) Output heatmap"
 						if d=0 or d=1 then
 							solvesub_bigramheatmap=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(solvesub_bigramheatmap))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
-					case "(Bigram substitution) Use best solution"
-						if d=0 or d=1 then
+					case "(Bigram substitution) Reuse best solution ratio"
+						if d>=0 or d<=1 then
 							solvesub_bigrambestsol=d
-							ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(solvesub_bigrambestsol))
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_bigrambestsol))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
 					case "(Bigram substitution) Auto-crib restarts"
@@ -201,11 +235,25 @@ case button_optionssolver_change
 					'	end if
 						
 					'case "(Substitution + columnar transposition & rearrangement) Columns"
-					'	if d>=2 andalso d<=2000 then
+					'	if d>=2 andalso d<=constcip then
 					'		solvesub_ctcolumns=d
 					'		ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_ctcolumns))
 					'	else ui_editbox_settext(output_text,"Error: solver options (A1)")
 					'	end if
+					
+					case "(Higher-order homophonic) N-order"
+						if d>=2 andalso d<=5 then
+							solvesub_higherorderhomophonic=d
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_higherorderhomophonic))
+						else ui_editbox_settext(output_text,"Error: solver options (A1)")
+						end if
+					
+					case "(Higher-order homophonic) Separation weight divider"
+						if d>=0 andalso d<=1000000 then
+							solvesub_higherorderhomophonicweight=d
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_higherorderhomophonicweight))
+						else ui_editbox_settext(output_text,"Error: solver options (A1)")
+						end if
 						
 					case "(Substitution + columnar transposition & rearrangement) Search depth"
 						if d>=1 andalso d<=7 then
@@ -220,25 +268,25 @@ case button_optionssolver_change
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
 					case "(Substitution + nulls and skips) Period"
-						if d>=1 andalso d<=2000 then
+						if d>=1 andalso d<=constcip then
 							solvesub_pnperiod=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_pnperiod))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
 					case "(Substitution + nulls and skips) Nulls and skips"
-						if d>=1 andalso d<=1000 then
+						if d>=1 andalso d<=constcip/2 then
 							solvesub_pnnulls=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_pnnulls))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
 					case "(Substitution + nulls and skips) Manual nulls"
-						if d>=0 andalso d<=1000 then
+						if d>=0 andalso d<=constcip/2 then
 							solvesub_pnmannulls=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_pnmannulls))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
 					case "(Substitution + nulls and skips) Manual skips"
-						if d>=0 andalso d<=1000 then
+						if d>=0 andalso d<=constcip/2 then
 							solvesub_pnmanskips=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_pnmanskips))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
@@ -247,7 +295,7 @@ case button_optionssolver_change
 					'-----------------------------------------------------------------------------
 				
 					case "(Substitution + nulls and skips) *** Temp ***"
-						if d>0 andalso d<=1000 then
+						if d>0 andalso d<=1000000 then
 							solvesub_nshctemp=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_nshctemp))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
@@ -301,10 +349,8 @@ case button_optionssolver_change
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(solvesub_incpolyphones))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
-						
-						
 					case "(Substitution + row bound fragments) Fragments"
-						if d>=0 or d<=2000 then
+						if d>=0 or d<=constcip then
 							solvesub_rowboundfragments=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_rowboundfragments))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
@@ -316,7 +362,7 @@ case button_optionssolver_change
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
 					case "(Substitution + row bound fragments) Fragments"
-						if d>=1 or d<=2000 then
+						if d>=1 or d<=constcip then
 							solvesub_rowboundfragments=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_rowboundfragments))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
@@ -358,7 +404,7 @@ case button_optionssolver_change
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
 					case "(Substitution + row bound fragments) Crib fragments"
-						if d>=1 or d<=2000 then
+						if d>=1 or d<=constcip then
 							solvesub_rowboundcribfragments=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_rowboundcribfragments))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
@@ -375,8 +421,6 @@ case button_optionssolver_change
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(solvesub_rowboundcheckhistory))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
-						
-						
 					case "(Substitution + sequential homophones) Sequential weight"
 						if d>=0 then
 							solvesub_seqweight=d
@@ -442,15 +486,20 @@ case button_optionssolver_change
 						end if
 				end select
 				ui_listbox_setcursel(list_optionssolver,i)
-				if change=1 then
-					stop_current_task
-					toggle_solverthreads(empty(),0,0,0,0,basedir+"\Output\",4,1,threads) 'stop solver
-					toggle_solverthreads(empty(),0,0,0,0,basedir+"\Output\",2,1,threads) 'stop thread
-					threads=solvesub_cputhreads 'update threads
-					redim thread(threads)
-					toggle_solverthreads(empty(),0,0,0,0,basedir+"\Output\",1,1,threads) 'start thread
-					stoptask=0
-				end if
+				select case change
+					case 1
+						stop_current_task
+						toggle_solverthreads(empty(),0,0,0,0,basedir+"\Output\",4,1,threads) 'stop solver
+						toggle_solverthreads(empty(),0,0,0,0,basedir+"\Output\",2,1,threads) 'stop thread
+						threads=solvesub_cputhreads 'update threads
+						redim thread(threads)
+						toggle_solverthreads(empty(),0,0,0,0,basedir+"\Output\",1,1,threads) 'start thread
+						stoptask=0
+					case 2
+						stop_current_task
+						pickletter_caching(1)
+						stoptask=0
+				end select
 			else ui_editbox_settext(output_text,"Error: "+task_active)
 			end if
 		else ui_editbox_settext(output_text,"Error: solver options (A1)")

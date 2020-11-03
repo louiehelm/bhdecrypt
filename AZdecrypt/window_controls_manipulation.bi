@@ -14,7 +14,7 @@ case button_manipulation_process 'mlogic
 				no_input_needed=1
 		end select
 		if soi="Ok" or no_input_needed=1 then
-			dim as double arg(2000)
+			dim as double arg(constcip)
 			arg(1)=info_length
 			arg(2)=info_symbols
 			arg(3)=info_x
@@ -100,7 +100,7 @@ case button_manipulation_process 'mlogic
 					for i=1 to info_length
 						cstate(1,i)=nuba(i)
 					next i
-				case else
+				case else 'default if no exeception
 					for i=1 to info_length
 						cstate(1,i)=nuba(i)
 					next i

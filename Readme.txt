@@ -1,1 +1,0 @@
-Place the 3 folders in the root of your C-drive and run FbEdit.

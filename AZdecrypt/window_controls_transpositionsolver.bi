@@ -60,7 +60,6 @@ case button_transpostionsolver_start
 				next i
 			end if
 			if task_active<>"none" then stop_current_task
-			'ui_listbox_setcursel(list_main,10)
 			set_solverhighlight("substitution + simple transposition")
 			sleep 100
 			if len(solver_file_name_ngrams)>0 then
@@ -74,5 +73,35 @@ case button_transpostionsolver_start
 			else ui_editbox_settext(output_text,"Error: no n-grams loaded")
 			end if
 		else ui_editbox_settext(output_text,soi)
+		end if
+	end if
+	
+case button_transpostionsolver_batchciphers
+	if msg.message=wm_lbuttondown then
+		solvesub_transpositionbatchciphers=1
+		if ui_listbox_gettext(list_transpositionsolver_stack,0)="" then 'if no op in stack then add all
+			for i=0 to 100
+				e=0
+				for j=0 to 100
+					if ui_listbox_gettext(list_transpositionsolver_stack,j)=ui_listbox_gettext(list_transpositionsolver_operations,i) then
+						e=1
+						exit for
+					end if
+				next j
+				if e=0 then ui_listbox_addstring(list_transpositionsolver_stack,ui_listbox_gettext(list_transpositionsolver_operations,i))
+			next i
+		end if
+		if task_active<>"none" then stop_current_task
+		set_solverhighlight("substitution + simple transposition")
+		sleep 100
+		if len(solver_file_name_ngrams)>0 then
+			if task_active="none" then
+				toggle_solverthreads(empty(),0,0,0,0,basedir+"\Output\",4,1,threads) 'stop solver
+				toggle_solverthreads(empty(),0,0,0,0,basedir+"\Output\",2,1,threads) 'stop thread
+				toggle_solverthreads(empty(),0,0,0,0,basedir+"\Output\",1,1,threads) 'start thread
+				sleep 10
+				thread_ptr(threadsmax+1)=threadcreate(@thread_solve_simpletransposition,0)
+			end if
+		else ui_editbox_settext(output_text,"Error: no n-grams loaded")
 		end if
 	end if

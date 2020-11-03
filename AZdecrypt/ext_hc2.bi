@@ -15,7 +15,7 @@ select case ext_hc
 		thread(tn).l=l
 		thread(tn).s=s
 		ll=l*(l-1)
-		al=l-(ngs-1)
+		al=l-(ngram_size-1)
 		for i=1 to l
 			thread(tn).cip(i)=extcip(tn,b,i)
 			if local_pcmode=1 then thread(tn).key(i)=extpcm(tn,b,i) 'extpcm = pc-cycles transposition matrix

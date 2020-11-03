@@ -12,11 +12,7 @@ select case ext_hc
 			thread(tn).itemname+=")"
 			for i=1 to l
 				bnba(i)=nba(i)
-				if solvesub_perfmode=1 then
-					extcip(tn,0,i)=alphabet2(sol(i+(ngs-1)))
-				else
-					extcip(tn,0,i)=alphabet(sol(i))
-				end if
+				extcip(tn,0,i)=alphabet(sol(i))
 			next i
 		end if
 	case 5 'nulls and skips
@@ -30,11 +26,7 @@ select case ext_hc
 			next i					
 			for i=1 to l
 				bnba(i)=nba(i)
-				if solvesub_perfmode=1 then
-					extcip(tn,0,i)=alphabet2(sol(i+(ngs-1)))
-				else
-					extcip(tn,0,i)=alphabet(sol(i))
-				end if
+				extcip(tn,0,i)=alphabet(sol(i))
 			next i	
 		end if
 end select

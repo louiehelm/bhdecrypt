@@ -341,7 +341,7 @@ case button_symbols_process
 						dim as integer cursor=ui_listbox_getcursel(list_symbols_ngrams)
 						j=val(ui_editbox_gettext(editbox_symbols_a1))
 						if j>=1 then
-							for i=1 to 2000
+							for i=1 to constcip
 								cpol(i)=j
 							next i
 						end if
