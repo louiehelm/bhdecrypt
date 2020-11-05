@@ -1,5 +1,9 @@
 'BHdecrypt 1.18
 '--------------
+' adapted from AZdecrypt v1.18 by jarl
+' 
+' icon: Unlock by Graphicloads
+'
 'possible issue with crib grid and gcc 8.1.0
 
 'cstate table
@@ -17,6 +21,10 @@
 'thread_ptr(threadsmax+3): sub threads inside thread_ptr(threadsmax+1)
 
 'zlib crc32/adler32 usage: crc32(0,@array(0),arraylen) 'bytes
+
+#macro logbx(a,b)
+log(a)/log(b)
+#EndMacro
 
 randomize timer,1 'rng=rand()
 
@@ -790,8 +798,7 @@ declare sub ext_bhd_beam_nullsandskips(byval t as short,byval l as short,byval s
 'declare functions
 '------------------------------------------------------------
 declare function remext(byval s as string)as string
-declare function logbx(byval n as double,byval bx as double)as double
-declare function m_ioc(array()as long,byval l as integer,byval s as integer,byval n as integer)as double
+Declare function m_ioc(array()as long,byval l as integer,byval s as integer,byval n as integer)as double
 declare function m_entropy(array()as long,byval l as integer,byval s as integer)as double
 declare function m_flatness(array()as long,byval l as integer,byval s as integer,byval n as integer)as double
 declare function m_smoothness(array()as long,byval l as integer,byval s as integer,byval n as integer)as double
@@ -32165,12 +32172,6 @@ sub bhdecrypt_vigenere_34567810g(byval tn_ptr as any ptr)
 	thread(tn).thread_stop=0
 	
 end sub
-
-function logbx(byval n as double,byval bx as double)as double
-	
-   return log(n)/log(bx)
-   
-end function
 
 function m_ioc(array()as long,byval l as integer,byval s as integer,byval n as integer)as double
 	
