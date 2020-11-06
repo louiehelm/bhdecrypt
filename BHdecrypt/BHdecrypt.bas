@@ -684,8 +684,19 @@ dim shared as ulong asc2num10000(255)
 dim shared as ulong asc2num100000(255)
 dim shared as ulong asc2num1000000(255)
 
+' declare some large shared mem objects
+static shared as short snba(0)
+static shared as short snba1(0)
+static shared as short snba2(0,0)
+'static shared as uinteger firstbyte(0,0,0)
+static shared as short cv1(0)
+static shared as short cv2(0,0)
+static shared as short symn(0,0)
+
+
 'cycle types arrays
 '------------------------------------------------------------
+static shared as double ctmean(0,0)
 redim shared as double cto(0 to 0,0,0,0)
 
 'declare subs
@@ -3719,7 +3730,7 @@ sub mainloop
 									dim as string cv=ui_editbox_gettext(input_text)
 									soi=string_to_info(cv)
 									if soi="Ok" then
-										dim as short snba(constcip)
+										redim snba(constcip)
 										erase snba
 										for i=1 to info_length
 											snba(nuba(i))+=1
@@ -3732,8 +3743,8 @@ sub mainloop
 									dim as string cv=ui_editbox_gettext(input_text)
 									soi=string_to_info(cv)
 									if soi="Ok" then
-										dim as short snba(constcip,constcip)
-										dim as short snba1(constcip)
+										redim snba(constcip,constcip)
+										redim snba1(constcip)
 										erase snba,snba1
 										for i=1 to info_length
 											snba(nuba(i),0)+=1
@@ -3750,6 +3761,8 @@ sub mainloop
 										next i
 										info_length=j
 										ui_editbox_settext(input_text,info_to_string(info(),info_length,info_x,info_y,1))
+										redim snba2(0,0)
+										redim snba1(0)
 									else ui_editbox_settext(output_text,soi)
 									end if
 								case 52 'convert to incremental map
@@ -3826,8 +3839,9 @@ sub mainloop
 									soi=string_to_info(ui_editbox_gettext(input_text))
 									if soi="Ok" then
 										dim as string con=ui_editbox_gettext(input_text)+" "
-										dim as short symn(constcip,constcip+1),seq(constcip),news=0,nl=0
+										dim as short seq(constcip),news=0,nl=0
 										dim as long ncip(constcip)
+										redim symn(constcip,constcip+1)
 										j=0:e=0
 										'erase symn,seq,ncip
 										for i=1 to len(con)
@@ -3866,6 +3880,7 @@ sub mainloop
 													seq(j)=asc(con,i)
 											end select
 										next i
+										redim symn(0,0)
 										ui_editbox_settext(input_text,info_to_string(ncip(),nl,info_x,info_y,1))
 									else ui_editbox_settext(output_text,soi)
 									end if
@@ -3887,7 +3902,11 @@ sub mainloop
 											case 105
 												if thread_ptr(threadsmax+2)=0 then
 													ui_editbox_settext(output_text,"Please wait..."+lb)
+													redim cv1(constcip)
+													redim cv2(constcip,constcip)
 													thread_ptr(threadsmax+2)=threadcreate(@stats_outputgraphs,0)
+													redim cv1(0)
+													redim cv2(0,0)
 												else stop_measurement=1
 												end if
 											case 106
@@ -3981,11 +4000,19 @@ sub mainloop
 														case 174:stats_nsymbolcycles=6
 													end select
 													ui_editbox_settext(output_text,"Please wait..."+lb)
+													redim cto(2 to 7,15,10,constcip)
+													redim ctmean(20,100000) ' TODO: does this need to me so large??
 													thread_ptr(threadsmax+2)=threadcreate(@stats_cycletypes,0)
+													redim ctmean(0,0)
+													redim cto(0,0,0,0)
 												else stop_measurement=1
 												end if
 											case 120:stats_compare_keymapping
-											case 121:stats_compare_kasiskeexamination
+											case 121
+'												redim scr1(constcip,constcip)
+'												Erase scr1
+												stats_compare_kasiskeexamination
+'												redim scr1(0,0)
 											case 122:stats_compare_equalitytest
 											case 123:stats_omnidirectional(2)
 											case 124:stats_omnidirectional(3)
@@ -8084,10 +8111,14 @@ sub thread_solve_simpletransposition(byval none as any ptr)
 	
 	dim as integer cb
 	'dim as double ptcp(constcip,1)
-	dim as ulong id(constcip,constcip)
-	dim as short gr0(constcip,constcip)
-	dim as short gr1(constcip,constcip)
-	dim as short gr2(constcip,constcip)
+	dim id() As ulong
+	redim id(constcip,constcip)
+	dim gr0() As short
+	redim gr0(constcip,constcip)
+	dim gr1() As short
+	redim gr1(constcip,constcip)
+	dim gr2() As short
+	redim gr2(constcip,constcip)
 	dim as short li0(constcip)
 	dim as integer beamdepth
 	dim as integer beamsize
@@ -20572,7 +20603,6 @@ sub stats_cycletypes(byval tn_ptr as any ptr)
 	dim as long nba0(l),nba1(l),nts(s)
 	dim as integer num=info_numerical
 	dim as short cta(200)
-	dim as double mean(20,100000)
 	dim as double variance(20)
 	dim as double std(20)
 	dim as double sigma(20)
@@ -20611,10 +20641,10 @@ sub stats_cycletypes(byval tn_ptr as any ptr)
 	maxcs=5
 	rits=stats_symbolcyclepatternsrndtrials
 	c2=(maxcs-1)*rits
-	'erase cto
+	Erase cto
 	
-	redim cto(0 to 0,0,0,0)
-	redim cto(2 to 7,15,10,constcip)
+	'redim cto(0 to 0,0,0,0)
+	'redim cto(2 to 7,15,10,constcip)
 	
 	for cs=stats_nsymbolcycles to stats_nsymbolcycles
 		c1=0
@@ -20649,7 +20679,7 @@ sub stats_cycletypes(byval tn_ptr as any ptr)
 		cta(0)=0
 		for i=1 to 20
 			if cta(i)=1 then
-				erase mean
+				erase ctmean
 				erase variance
 				cta(0)=i 'set to max used
 			end if
@@ -20662,8 +20692,8 @@ sub stats_cycletypes(byval tn_ptr as any ptr)
 			e=m_cycletypes(nba1(),l,s,cs,cta())
 			for j=1 to cta(0)
 				if cta(j)=1 then
-					mean(j,i)=cto(cs,j,0,0)
-					mean(j,0)+=cto(cs,j,0,0)
+					ctmean(j,i)=cto(cs,j,0,0)
+					ctmean(j,0)+=cto(cs,j,0,0)
 				end if
 			next j
 			'--------------------------------------------------	
@@ -20685,9 +20715,9 @@ sub stats_cycletypes(byval tn_ptr as any ptr)
 		next i
 		for i=1 to cta(0)
 			if cta(i)=1 then
-				mean(i,0)/=rits
+				ctmean(i,0)/=rits
 				for j=1 to rits
-					variance(i)+=(mean(i,j)-mean(i,0))^2
+					variance(i)+=(ctmean(i,j)-ctmean(i,0))^2
 				next j
 				variance(i)/=rits
 				std(i)=sqr(variance(i))
@@ -20702,7 +20732,7 @@ sub stats_cycletypes(byval tn_ptr as any ptr)
 		for i=1 to cta(0)
 			if cta(i)=1 then
 				score(i)=cto(cs,i,0,0)
-				sigma(i)=(score(i)-mean(i,0))/std(i)
+				sigma(i)=(score(i)-ctmean(i,0))/std(i)
 				os+=lb
 				select case i
 					case 1:os+="Cycles: "
@@ -20759,7 +20789,6 @@ sub stats_cycletypes(byval tn_ptr as any ptr)
 		next i
 	next cs
 	
-	redim cto(0 to 0,0,0,0)
 	
 	'os+=lb
 	'os+="Runtime: "+rdc(timer-runtimer,2)
@@ -25053,9 +25082,9 @@ sub stats_compare_kasiskeexamination
 		ui_editbox_settext(output_text,soi)
 		exit sub
 	end if
-	dim as long cip1i(65536)
-	dim as long cip1n(65536)
-	dim as long sym1(65536)
+	dim as long cip1i(constcip)
+	dim as long cip1n(constcip)
+	dim as long sym1(constcip)
 	dim as integer l1=info_length
 	dim as integer s1=info_symbols
 	dim as integer dx1=info_x
@@ -25072,9 +25101,9 @@ sub stats_compare_kasiskeexamination
 		ui_editbox_settext(output_text,soi)
 		exit sub
 	end if
-	dim as long cip2i(65536)
-	dim as long cip2n(65536)
-	dim as long sym2(65536)
+	dim as long cip2i(constcip)
+	dim as long cip2n(constcip)
+	dim as long sym2(constcip)
 	dim as integer l2=info_length
 	dim as integer s2=info_symbols
 	dim as integer dx2=info_x
@@ -25108,31 +25137,30 @@ sub stats_compare_kasiskeexamination
 	end if
 	
 	dim as integer khi
-	dim as integer count1(1,65536) 'lmax
+	dim as integer count1(constcip)
 	for i=0 to lmax-1
 		k=i
 		for j=1 to lmax
 			k+=1
 			if k>l2 then k=1
-			count1(0,i)+=1
-			if cip1i(j)=cip2i(k) then count1(1,i)+=1
+			if cip1i(j)=cip2i(k) then count1(i)+=1
 		next j
-		if i>0 andalso count1(1,i)>khi then khi=count1(1,i)
+		if i>0 andalso count1(i)>khi then khi=count1(i)
 	next i
 	
 	os+="BHdecrypt compare kasiski examination stats for: "+file_name+lb
 	os+="---------------------------------------------------------"
 	for i=0 to lmax-1
 		os+=lb
-		os+="Offset "+str(i)+": "+str(count1(1,i))
-		if khi=count1(1,i) then os+=" <---"
+		os+="Offset "+str(i)+": "+str(count1(i))
+		if khi=count1(i) then os+=" <---"
 	next i
 	
 	os+=lb
 	os+=lb
 	os+="Kasiski examination (grid offset):"+lb
 	os+="---------------------------------------------------------"
-	dim as double arg(100),scr1(constcip,constcip),k1_hi,k2_hi 'dx,dy
+	dim as double arg(100),scr1,k1_hi,k2_hi 'dx,dy
 	dim as long newcip(identmax) 'lmax
 	for i=1 to l1
 		cstate(11,i)=cip1i(i)	
@@ -25149,17 +25177,13 @@ sub stats_compare_kasiskeexamination
 			for i=1 to l1
 				newcip(i)=cstate(13,i)
 			next i
-			scr1(x,y)=m_gridmatch(newcip(),cip2i(),dx1,dy1,dx2,dy2,0)
-			if scr1(x,y)>k1_hi then k1_hi=scr1(x,y)
+			scr1=m_gridmatch(newcip(),cip2i(),dx1,dy1,dx2,dy2,0)
+			if scr1>k1_hi then k1_hi=scr1
+			os+=lb
+			os+="Left "+str(x)+" down "+str(y)+": "+str(scr1)
+			if scr1=k1_hi then os+=" <---"
 		next x
 		'if x<>dx1 andalso y<>dy1 andalso scr1(x,y)>k1_hi then k1_hi=scr1(x,y)
-	next y
-	for y=1 to dy1-1
-		for x=1 to dx1-1
-			os+=lb
-			os+="Left "+str(x)+" down "+str(y)+": "+str(scr1(x,y))
-			if scr1(x,y)=k1_hi then os+=" <---"
-		next x
 	next y
 	
 	ui_editbox_settext(output_text,os)
@@ -25321,8 +25345,8 @@ sub stats_outputgraphs(byval tn_ptr as any ptr)
 	dim as long nms(l)
 	dim as double dbl(constcip)
 	dim as long gr1(dx,dy)
-	dim as short cv1(constcip)
-	dim as short cv2(constcip,constcip)
+'	dim as short cv1(constcip)
+'	dim as short cv2(constcip,constcip)
 	dim as short frq(s)
 	
 	dim as string file_name2=remext(file_name)
@@ -26866,13 +26890,13 @@ sub bhdecrypt_mergeseqhom(byval tn_ptr as any ptr)
 	dim as short frq(255)
 	dim as short nba(constcip)
 	dim as short sol(constcip)
-	dim as short map1(constcip,constcip)
+	dim as short map1(constfrq,constfrq)
 	dim as short map1r(constcip)
 	dim as short stl(constcip)
 	dim as short id(constcip)
 	dim as short sym(constcip)
 	
-	dim as short solnba(255,constcip)
+	dim as short solnba(255,constfrq)
 	dim as short m1p(constcip)
 	dim as short cyc(constcip)
 	dim as double cycles(255)
