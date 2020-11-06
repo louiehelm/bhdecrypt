@@ -986,7 +986,7 @@ sub file_load_settings
    #ifndef __FB_LINUX__
 		dim as SYSTEM_INFO sysinf
 		getsysteminfo(@sysinf)
-		solvesub_cputhreads=(sysinf.dwnumberofprocessors/4)*3 'use 3/4 of system CPU threads
+		solvesub_cputhreads=(sysinf.dwnumberofprocessors)-1 'use one CPU thread less than total by default
 	#else
 		solvesub_cputhreads=GetCPUCores
 	#endif
