@@ -1,4 +1,4 @@
-case button_optionssolver_normalize
+Case button_optionssolver_normalize
 	if msg.message=wm_lbuttondown then
 		if task_active<>"none" then stop_current_task
 		if len(solver_file_name_ngrams)>0 then
@@ -90,9 +90,15 @@ case button_optionssolver_change
 					case "(General) N-gram factor"
 						if d>0 then
 							solvesub_ngramfactor=d
-							ui_listbox_replacestring(list_optionssolver,i,s+": "+rdc(solvesub_ngramfactor,5))
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+format(solvesub_ngramfactor,"0.00000"))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
-						end if
+						end If
+					case "(General) W-gram factor"
+						if d>0 then
+							solvesub_wgramfactor=d
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+format(solvesub_wgramfactor,"0.00000"))
+						else ui_editbox_settext(output_text,"Error: solver options (A1)")
+						end If
 					case "(General) Multiplicity weight"
 						if d>=0 then
 							solvesub_multiplicityweight=d
@@ -176,6 +182,24 @@ case button_optionssolver_change
 							if solvesub_ngramcaching<>int(d) then change=2
 							solvesub_ngramcaching=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(solvesub_ngramcaching))
+						else ui_editbox_settext(output_text,"Error: solver options (A1)")
+						end if
+					case "(General) Add spaces to output"
+						if d=0 or d=1 then
+							solvesub_addspaces=d
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(solvesub_addspaces))
+						else ui_editbox_settext(output_text,"Error: solver options (A1)")
+						end if
+					case "(General) Add spaces to output iterations"
+						if d>=0 or d<=1000000 then
+							solvesub_addspacesquality=d
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_addspacesquality))
+						else ui_editbox_settext(output_text,"Error: solver options (A1)")
+						end if
+					case "(General) N-gram log value cut-off"
+						if d>=0 or d<=254 then
+							solvesub_ngramlogcutoff=d
+							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_ngramlogcutoff))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
 					case "(Batch n-grams) Iterations"
@@ -336,19 +360,21 @@ case button_optionssolver_change
 							solvesub_pndepth=d
 							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_pndepth))
 						else ui_editbox_settext(output_text,"Error: solver options (A1)")
-						end if																				
-					case "(Substitution + polyphones [auto]) Extra letters"
-						if d>0 then
-							solvesub_polyphones=d
-							ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_polyphones))
-						else ui_editbox_settext(output_text,"Error: solver options (A1)")
 						end if
-					case "(Substitution + polyphones [auto]) Increment extra letters"
-						if d=0 or d=1 then
-							solvesub_incpolyphones=d
-							ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(solvesub_incpolyphones))
-						else ui_editbox_settext(output_text,"Error: solver options (A1)")
-						end if
+						
+					'case "(Substitution + polyphones [auto]) Extra letters"
+					'	if d>0 then
+					'		solvesub_polyphones=d
+					'		ui_listbox_replacestring(list_optionssolver,i,s+": "+str(solvesub_polyphones))
+					'	else ui_editbox_settext(output_text,"Error: solver options (A1)")
+					'	end if
+					'case "(Substitution + polyphones [auto]) Increment extra letters"
+					'	if d=0 or d=1 then
+					'		solvesub_incpolyphones=d
+					'		ui_listbox_replacestring(list_optionssolver,i,s+": "+yesno(solvesub_incpolyphones))
+					'	else ui_editbox_settext(output_text,"Error: solver options (A1)")
+					'	end if
+						
 					case "(Substitution + row bound fragments) Fragments"
 						if d>=0 or d<=constcip then
 							solvesub_rowboundfragments=d

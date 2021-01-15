@@ -11,9 +11,9 @@ select case ngram_size
 			case 4:pi=@g4(0,0,0,0)
 			case 5:pi=@g5(0,0,0,0,0)
 			case 6:pi=@g6(0,0,0,0,0,0)
-			'case 7:pi=@g7(0,0,0,0,0,0,0)
+			case 7:pi=@g7(0,0,0,0,0,0,0)
 		end select
-		dim as integer bufferlen=(ngram_alphabet_size^2)-1
+		dim as integer bufferlen=(ngram_alphabet_size^2)-1 'why -1 ???
 		dim as ubyte buffer(bufferlen)
 		'open solvesub_ngramloctemp for binary as #1 'for language files (keep)
 		open bdng+filename1 for binary as #1
@@ -56,7 +56,7 @@ select case ngram_size
 		open bdng+filename2 for binary as #1
 		put #1,,bh4() 'doesn't work for files > 3GB (FreeBASIC bug)
 		close #1
-		dim as integer bufferlen=ngram_maxtableindex-1
+		dim as integer bufferlen=ngram_maxtableindex-1 'why -1 ???
 		dim as ubyte buffer(bufferlen)
 		open bdng+filename1 for binary as #1
 		j=0

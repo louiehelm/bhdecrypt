@@ -110,39 +110,39 @@ select case ngram_size
 			next x2
 		next x1
 	
-	'case 7
-	'	
-	'	'j=0
-	'	redim g7b(0,0,0,0,0,0,0)
-	'	redim g7b(6,ngram_alphabet_size-1,ngram_alphabet_size-1,ngram_alphabet_size-1,ngram_alphabet_size-1,ngram_alphabet_size-1,ngram_alphabet_size-1)
-	'	
-	'	'dim as ubyte hn(6,1)
-	'	'for x1=0 to nm1
-	'	'	for x2=0 to nm1
-	'	'		#include "ngram_table_progress.bi"
-	'	'		for x3=0 to nm1
-	'	'			for x4=0 to nm1
-	'	'				for x5=0 to nm1
-	'	'					for x6=0 to nm1
-	'	'						j+=1
-	'	'						for i=0 to nm1
-	'	'							if g7(i,x1,x2,x3,x4,x5,x6)>hn(6,0) then hn(6,0)=g7(i,x1,x2,x3,x4,x5,x6):hn(6,1)=i
-	'	'							if g7(x1,i,x2,x3,x4,x5,x6)>hn(5,0) then hn(5,0)=g7(x1,i,x2,x3,x4,x5,x6):hn(5,1)=i
-	'	'							if g7(x1,x2,i,x3,x4,x5,x6)>hn(4,0) then hn(4,0)=g7(x1,x2,i,x3,x4,x5,x6):hn(4,1)=i
-	'	'							if g7(x1,x2,x3,i,x4,x5,x6)>hn(3,0) then hn(3,0)=g7(x1,x2,x3,i,x4,x5,x6):hn(3,1)=i
-	'	'							if g7(x1,x2,x3,x4,i,x5,x6)>hn(2,0) then hn(2,0)=g7(x1,x2,x3,x4,i,x5,x6):hn(2,1)=i
-	'	'							if g7(x1,x2,x3,x4,x5,i,x6)>hn(1,0) then hn(1,0)=g7(x1,x2,x3,x4,x5,i,x6):hn(1,1)=i
-	'	'							if g7(x1,x2,x3,x4,x5,x6,i)>hn(0,0) then hn(0,0)=g7(x1,x2,x3,x4,x5,x6,i):hn(0,1)=i
-	'	'						next i
-	'	'						for i=0 to 6
-	'	'							if hn(i,0)>0 then g7b(i,x1,x2,x3,x4,x5,x6)=hn(i,1) else g7b(i,x1,x2,x3,x4,x5,x6)=nm1+1
-	'	'						next i
-	'	'						erase hn
-	'	'					next x6
-	'	'				next x5
-	'	'			next x4
-	'	'		next x3
-	'	'	next x2
-	'	'next x1
+	case 7
+		
+		'j=0
+		redim g7b(0,0,0,0,0,0,0)
+		redim g7b(6,ngram_alphabet_size-1,ngram_alphabet_size-1,ngram_alphabet_size-1,ngram_alphabet_size-1,ngram_alphabet_size-1,ngram_alphabet_size-1)
+		
+		'dim as ubyte hn(6,1)
+		'for x1=0 to nm1
+		'	for x2=0 to nm1
+		'		#include "ngram_table_progress.bi"
+		'		for x3=0 to nm1
+		'			for x4=0 to nm1
+		'				for x5=0 to nm1
+		'					for x6=0 to nm1
+		'						j+=1
+		'						for i=0 to nm1
+		'							if g7(i,x1,x2,x3,x4,x5,x6)>hn(6,0) then hn(6,0)=g7(i,x1,x2,x3,x4,x5,x6):hn(6,1)=i
+		'							if g7(x1,i,x2,x3,x4,x5,x6)>hn(5,0) then hn(5,0)=g7(x1,i,x2,x3,x4,x5,x6):hn(5,1)=i
+		'							if g7(x1,x2,i,x3,x4,x5,x6)>hn(4,0) then hn(4,0)=g7(x1,x2,i,x3,x4,x5,x6):hn(4,1)=i
+		'							if g7(x1,x2,x3,i,x4,x5,x6)>hn(3,0) then hn(3,0)=g7(x1,x2,x3,i,x4,x5,x6):hn(3,1)=i
+		'							if g7(x1,x2,x3,x4,i,x5,x6)>hn(2,0) then hn(2,0)=g7(x1,x2,x3,x4,i,x5,x6):hn(2,1)=i
+		'							if g7(x1,x2,x3,x4,x5,i,x6)>hn(1,0) then hn(1,0)=g7(x1,x2,x3,x4,x5,i,x6):hn(1,1)=i
+		'							if g7(x1,x2,x3,x4,x5,x6,i)>hn(0,0) then hn(0,0)=g7(x1,x2,x3,x4,x5,x6,i):hn(0,1)=i
+		'						next i
+		'						for i=0 to 6
+		'							if hn(i,0)>0 then g7b(i,x1,x2,x3,x4,x5,x6)=hn(i,1) else g7b(i,x1,x2,x3,x4,x5,x6)=nm1+1
+		'						next i
+		'						erase hn
+		'					next x6
+		'				next x5
+		'			next x4
+		'		next x3
+		'	next x2
+		'next x1
 		
 end select

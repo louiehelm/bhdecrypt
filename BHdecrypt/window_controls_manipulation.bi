@@ -1,4 +1,4 @@
-case button_manipulation_process 'mlogic
+case button_manipulation_process
 	if msg.message=wm_lbuttondown then
 		dim as string operation
 		dim as integer no_input_needed=0
@@ -59,7 +59,8 @@ case button_manipulation_process 'mlogic
 				case "Remove column","Remove row","Remove character","Remove character periodic",_
 					"Randomize positions periodic","Replace periodic with random filler","Encode: homophonic substitution",_
 					"Randomize characters","Encode: caesar shift","Encode: homophonic substitution 2","Encode: fractioned morse",_
-					"Modulo","Add nulls and skips","Math","Randomize and bigrams" ',"Encode: homophonic substitution (no repeat window)"
+					"Modulo","Add nulls and skips","Math","Randomize and bigrams"
+					',"Encode: homophonic substitution (no repeat window)"
 					for i=1 to info_length
 						cstate(1,i)=info(i)
 					next i
@@ -90,15 +91,23 @@ case button_manipulation_process 'mlogic
 					for i=1 to info_length
 						cstate(1,i)=info(i)
 					next i
-				case "Add row"
+				case "Add row","Add row (using random symbols)"
 					info_y+=1
 					for i=1 to info_length
-						cstate(1,i)=nuba(i)
+						if operation="Add row" then
+							cstate(1,i)=nuba(i)
+						else
+							cstate(1,i)=info(i)
+						end if
 					next i
-				case "Add column"
+				case "Add column","Add column (using random symbols)"
 					info_x+=1
 					for i=1 to info_length
-						cstate(1,i)=nuba(i)
+						if operation="Add column" then
+							cstate(1,i)=nuba(i)
+						else
+							cstate(1,i)=info(i)
+						end if
 					next i
 				case else 'default if no exeception
 					for i=1 to info_length
@@ -114,15 +123,16 @@ case button_manipulation_process 'mlogic
 				next i
 				select case operation 'output numeric or character
 					case "Encode: vigenère","Encode: digraph substitution","Encode: caesar shift","Encode: fractioned morse"
-						ui_editbox_settext(input_text,info_to_string(info(),newlength,info_x,0,0))
+						ui_editbox_settext(input_text,info_to_string(info(),newlength,info_x,0,0,0,0))
 					case "Randomize characters","Remove column","Remove row","Remove character",_
 						"Remove character periodic","Randomize positions periodic","Expand symbol",_
 						"Replace periodic with random filler","Disperse symbol","Remove symbol",_
 						"Merge random characters","Merge random symbols","Add null characters",_
-						"Add null symbol","Assign homophones","Add nulls and skips","Randomize and bigrams"
-						ui_editbox_settext(input_text,info_to_string(info(),newlength,info_x,0,info_numerical))
+						"Add null symbol","Assign homophones","Add nulls and skips","Randomize and bigrams",_
+						"Add row (using random symbols)","Add column (using random symbols)"
+						ui_editbox_settext(input_text,info_to_string(info(),newlength,info_x,0,info_numerical,0,0))
 					case else
-						ui_editbox_settext(input_text,info_to_string(info(),newlength,info_x,0,1))
+						ui_editbox_settext(input_text,info_to_string(info(),newlength,info_x,0,1,0,0))
 				end select
 			else ui_editbox_settext(output_text,ret)
 			end if 

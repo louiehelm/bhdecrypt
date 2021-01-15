@@ -24,11 +24,11 @@ select case ngram_size
 			j=map2(curr_symbol,i)
 			ngrams(j)=g6(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))
 		next i
-	'case 7
-	'	for i=1 to map2(curr_symbol,0)
-	'		j=map2(curr_symbol,i)
-	'		ngrams(j)=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
-	'	next i
+	case 7
+		for i=1 to map2(curr_symbol,0)
+			j=map2(curr_symbol,i)
+			ngrams(j)=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
+		next i
 	case 8
 		for i=1 to map2(curr_symbol,0)
 			j=map2(curr_symbol,i)

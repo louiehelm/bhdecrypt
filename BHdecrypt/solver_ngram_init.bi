@@ -24,11 +24,11 @@ select case ngram_size
 			ngrams(i)=g6(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
 			new_ngram_score+=ngrams(i)
 		next i
-	'case 7
-	'	for i=1 to al
-	'		ngrams(i)=g7(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
-	'		new_ngram_score+=ngrams(i)
-	'	next i
+	case 7
+		for i=1 to al
+			ngrams(i)=g7(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
+			new_ngram_score+=ngrams(i)
+		next i
 	case 8
 		for i=1 to al
 			ngrams(i)=bh8(bh4(sol(i),sol(i+1),sol(i+2),sol(i+3)),bh4(sol(i+4),sol(i+5),sol(i+6),sol(i+7)))

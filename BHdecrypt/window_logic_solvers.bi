@@ -53,10 +53,17 @@ case button_main_process
 									thread_ptr(threadsmax+1)=threadcreate(@thread_solve_rowbound,0)
 								case "Substitution + row bound fragments"
 									thread_ptr(threadsmax+1)=threadcreate(@thread_solve_rowbound_fragments,0)
-								case "Substitution + polyphones [user]"
-									thread_ptr(threadsmax+1)=threadcreate(@thread_solve_polyphones_user,0)
-								case "Substitution + polyphones [auto]"	
-									thread_ptr(threadsmax+1)=threadcreate(@thread_solve_polyphones_auto,0)	
+								case "Substitution + polyphones"
+									if pp_windowup=0 then
+										create_window_polyphones
+										get_symbols(1)
+										ui_listbox_setcursel(list_polyphones_stl,0)
+									else
+										if ui_radiobutton_getcheck(radiobutton_polyphones_user)=1 then thread_ptr(threadsmax+1)=threadcreate(@thread_solve_polyphones_user,0)
+										if ui_radiobutton_getcheck(radiobutton_polyphones_auto)=1 then thread_ptr(threadsmax+1)=threadcreate(@thread_solve_polyphones_auto,0)
+										if ui_radiobutton_getcheck(radiobutton_polyphones_hafer1)=1 then thread_ptr(threadsmax+1)=threadcreate(@thread_solve_polyphones_hafer,0)
+										if ui_radiobutton_getcheck(radiobutton_polyphones_hafer2)=1 then thread_ptr(threadsmax+1)=threadcreate(@thread_solve_polyphones_hafer,0)
+									end if
 								case "Substitution + simple transposition"
 									if ts_windowup=0 then
 										create_window_transpositionsolver
@@ -90,7 +97,7 @@ case button_main_process
 										create_window_units
 									else
 										thread_ptr(threadsmax+1)=threadcreate(@thread_solve_units,0)
-									end if	
+									end if
 								case "Merge sequential homophones"
 									thread_ptr(threadsmax+1)=threadcreate(@thread_solve_mergeseqhom,0)
 							end select

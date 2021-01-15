@@ -36,7 +36,7 @@ case button_transposition_transpose,button_transposition_untranspose
 								info(cip2(i))=cip1(i)
 							end if
 						next i
-						ui_editbox_settext(input_text,info_to_string(info(),l1,x1,y1,n1))
+						ui_editbox_settext(input_text,info_to_string(info(),l1,x1,y1,n1,0,0))
 					else ui_editbox_settext(output_text,"Error: input output length mismatch")
 					end if
 				else ui_editbox_settext(output_text,soi)
@@ -172,7 +172,7 @@ case button_transposition_transpose,button_transposition_untranspose
 			 			end if 
 			 		next x
 			 	next y
-				ui_editbox_settext(input_text,info_to_string(info_out(),info_length,info_x,info_y,info_numerical))
+				ui_editbox_settext(input_text,info_to_string(info_out(),info_length,info_x,info_y,info_numerical,0,0))
 			else ui_editbox_settext(output_text,cso)
 			end if
 		else ui_editbox_settext(output_text,soi)

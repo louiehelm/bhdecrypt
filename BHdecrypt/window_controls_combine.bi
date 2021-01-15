@@ -32,7 +32,7 @@ case button_combine_add
 							"Randomize row order","Randomize column order","Encode: caesar shift",_
 							"Encode: homophonic substitution 1-170","Encode: homophonic substitution 171-340",_
 							"Encode: homophonic substitution 2","Random nulls","Random skips","Add nulls and skips",_
-							"Randomize and bigrams"
+							"Randomize and bigrams","Add row (using random symbols)","Add column (using random symbols)"
 							s+="("
 						case else
 							if combine_stack(j).untransposed=0 then

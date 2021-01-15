@@ -2,7 +2,7 @@ case button_symbols_update
 	if msg.message=wm_lbuttondown then
 		soi=string_to_info(ui_editbox_gettext(input_text))
 		if soi="Ok" then 
-			get_symbols
+			get_symbols(0)
 			ui_listbox_setcursel(list_symbols_ngrams,0)
 		else ui_editbox_settext(output_text,soi)
 		end if
@@ -17,7 +17,7 @@ case button_symbols_process
 				
 				case "Expand selected symbol"
 					dim as integer cursor=ui_listbox_getcursel(list_symbols_ngrams)
-					get_symbols
+					get_symbols(0)
 					if info_numerical=0 then
 						dim as string ngram1=ui_listbox_gettext(list_symbols_ngrams,cursor)
 						ngram1=left(ngram1,instr(ngram1,":  ")-1)
@@ -26,7 +26,7 @@ case button_symbols_process
 							ui_editbox_settext(output_text,"Error: n-gram size > 1")
 							exit select
 						end if
-						dim as string string1=info_to_string(info(),info_length,info_x,info_y,info_numerical)
+						dim as string string1=info_to_string(info(),info_length,info_x,info_y,info_numerical,0,0)
 						dim as integer lns=len(string1)
 						dim as integer table1(255)
 						erase table1
@@ -61,7 +61,7 @@ case button_symbols_process
 						loop
 						string_to_info(string1)
 						ui_editbox_settext(input_text,string1)
-						get_symbols
+						get_symbols(0)
 						ui_listbox_setcursel(list_symbols_ngrams,cursor)
 					else
 						dim as string ngram1=ui_listbox_gettext(list_symbols_ngrams,cursor)
@@ -117,23 +117,23 @@ case button_symbols_process
 								i+=(numbers1(0)-1) 'skip
 							end if
 						next i
-						dim as string string1=info_to_string(info(),info_length,info_x,info_y,info_numerical)
+						dim as string string1=info_to_string(info(),info_length,info_x,info_y,info_numerical,0,0)
 						ui_editbox_settext(input_text,string1)
 						string_to_info(string1)
-						get_symbols
+						get_symbols(0)
 						ui_listbox_setcursel(list_symbols_ngrams,cursor)	
 					end if
-															
+					
 				case "Replace selected symbol with"
 					dim as integer cursor=ui_listbox_getcursel(list_symbols_ngrams)
-					get_symbols
+					get_symbols(0)
 					if info_numerical=0 then
 						dim as string ngram1=ui_listbox_gettext(list_symbols_ngrams,cursor)
 						dim as string ngram2=ui_editbox_gettext(editbox_symbols_a1)
 						ngram1=left(ngram1,instr(ngram1,":  ")-1)
 						dim as integer lng1=len(ngram1)
 						dim as integer lng2=len(ngram2)
-						dim as string string1=info_to_string(info(),info_length,info_x,info_y,info_numerical)
+						dim as string string1=info_to_string(info(),info_length,info_x,info_y,info_numerical,0,0)
 						dim as integer lns=len(string1)
 						i=1
 						do
@@ -148,7 +148,7 @@ case button_symbols_process
 						loop	
 						string_to_info(string1)
 						ui_editbox_settext(input_text,string1)
-						get_symbols
+						get_symbols(0)
 						ui_listbox_setcursel(list_symbols_ngrams,cursor)
 					else
 						dim as string ngram1=ui_listbox_gettext(list_symbols_ngrams,cursor)
@@ -217,21 +217,21 @@ case button_symbols_process
 								i+=(numbers1(0)-1) 'skip
 							end if
 						next i									
-						dim as string string1=info_to_string(new_info(),k,info_x,info_y,info_numerical)
+						dim as string string1=info_to_string(new_info(),k,info_x,info_y,info_numerical,0,0)
 						ui_editbox_settext(input_text,string1)
 						string_to_info(string1)
-						get_symbols
+						get_symbols(0)
 						ui_listbox_setcursel(list_symbols_ngrams,cursor)											
 					end if		
 					
 				case "Remove selected symbol"
 					dim as integer cursor=ui_listbox_getcursel(list_symbols_ngrams)
-					get_symbols
+					get_symbols(0)
 					if info_numerical=0 then
 						dim as string ngram1=ui_listbox_gettext(list_symbols_ngrams,cursor)
 						ngram1=left(ngram1,instr(ngram1,":  ")-1)
 						dim as integer lng=len(ngram1)
-						dim as string string1=info_to_string(info(),info_length,info_x,info_y,info_numerical)
+						dim as string string1=info_to_string(info(),info_length,info_x,info_y,info_numerical,0,0)
 						dim as integer lns=len(string1)
 						'i=1
 						do
@@ -246,7 +246,7 @@ case button_symbols_process
 						loop
 						string_to_info(string1)
 						ui_editbox_settext(input_text,string1)
-						get_symbols
+						get_symbols(0)
 						ui_listbox_setcursel(list_symbols_ngrams,cursor)
 					else
 						dim as string ngram1=ui_listbox_gettext(list_symbols_ngrams,cursor)
@@ -295,10 +295,10 @@ case button_symbols_process
 								new_info(j)=info(i)
 							end if	
 						next i
-						dim as string string1=info_to_string(new_info(),new_length,info_x,info_y,info_numerical)
+						dim as string string1=info_to_string(new_info(),new_length,info_x,info_y,info_numerical,0,0)
 						ui_editbox_settext(input_text,string1)
 						string_to_info(string1)
-						get_symbols
+						get_symbols(0)
 						ui_listbox_setcursel(list_symbols_ngrams,cursor)
 					end if
 					
@@ -307,48 +307,8 @@ case button_symbols_process
 					if val(ui_editbox_gettext(editbox_symbols_a1))>=1 then 
 						symbols_ngramsize=val(ui_editbox_gettext(editbox_symbols_a1))
 					end if
-					get_symbols
+					get_symbols(0)
 					ui_listbox_setcursel(list_symbols_ngrams,cursor)
-					
-				case "Set plaintext letters for selected symbol"
-					if symbols_ngramsize=1 then
-						dim as integer cursor=ui_listbox_getcursel(list_symbols_ngrams)
-						dim as string ngram1=ui_listbox_gettext(list_symbols_ngrams,cursor)
-						ngram1=left(ngram1,instr(ngram1,":  ")-1)
-						dim as integer snum
-						if info_numerical=0 then
-							snum=asc(ngram1)
-						else				
-							snum=val(ngram1)
-						end if
-						for i=1 to info_length
-							if info(i)=snum then 
-								k=nuba(i)
-								exit for
-							end if
-						next i
-						j=val(ui_editbox_gettext(editbox_symbols_a1))
-						if j>=1 then
-							cpol(k)=j
-						end if
-						get_symbols
-						ui_listbox_setcursel(list_symbols_ngrams,cursor)
-					else ui_editbox_settext(output_text,"Error: symbol n-gram size > 1")
-					end if
-					
-				case "Set plaintext letters for all symbols"
-					if symbols_ngramsize=1 then
-						dim as integer cursor=ui_listbox_getcursel(list_symbols_ngrams)
-						j=val(ui_editbox_gettext(editbox_symbols_a1))
-						if j>=1 then
-							for i=1 to constcip
-								cpol(i)=j
-							next i
-						end if
-						get_symbols
-						ui_listbox_setcursel(list_symbols_ngrams,cursor)
-					else ui_editbox_settext(output_text,"Error: symbol n-gram size > 1")
-					end if
 					
 			end select
 		else ui_editbox_settext(output_text,soi)

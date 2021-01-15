@@ -1,3 +1,5 @@
+'try to replace select case with one line and test if faster
+
 bls=0
 if d>mc then
 	#include "solver_randomnewletter.bi"
@@ -41,94 +43,94 @@ else
 				case 1:new_letter=g6b(1,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+5))
 				case 0:new_letter=g6b(0,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
 			end select
-		'case 7
-		'	new_letter=ngram_alphabet_size
-		'	select case map2b(curr_symbol,k)
-		'		case 0
-		'			new_letter=g7b(0,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))
-		'			if new_letter=0 then
-		'				new_letter=abc_size
-		'				for i=0 to abc_sizem1
-		'					blt=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),i)
-		'					if blt>bls then bls=blt:new_letter=i
-		'				next i
-		'				g7b(0,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))=new_letter+1
-		'			else
-		'				new_letter-=1
-		'			end if
-		'		case 1
-		'			new_letter=g7b(1,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+6))
-		'			if new_letter=0 then
-		'				new_letter=abc_size
-		'				for i=0 to abc_sizem1
-		'					blt=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),i,sol(j+6))
-		'					if blt>bls then bls=blt:new_letter=i
-		'				next i
-		'				g7b(1,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+6))=new_letter+1
-		'			else
-		'				new_letter-=1
-		'			end if
-		'		case 2
-		'			new_letter=g7b(2,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+5),sol(j+6))
-		'			if new_letter=0 then
-		'				new_letter=abc_size
-		'				for i=0 to abc_sizem1
-		'					blt=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),i,sol(j+5),sol(j+6))
-		'					if blt>bls then bls=blt:new_letter=i
-		'				next i
-		'				g7b(2,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+5),sol(j+6))=new_letter+1
-		'			else
-		'				new_letter-=1
-		'			end if
-		'		case 3
-		'			new_letter=g7b(3,sol(j),sol(j+1),sol(j+2),sol(j+4),sol(j+5),sol(j+6))
-		'			if new_letter=0 then
-		'				new_letter=abc_size
-		'				for i=0 to abc_sizem1
-		'					blt=g7(sol(j),sol(j+1),sol(j+2),i,sol(j+4),sol(j+5),sol(j+6))
-		'					if blt>bls then bls=blt:new_letter=i
-		'				next i
-		'				g7b(3,sol(j),sol(j+1),sol(j+2),sol(j+4),sol(j+5),sol(j+6))=new_letter+1
-		'			else
-		'				new_letter-=1
-		'			end if
-		'		case 4
-		'			new_letter=g7b(4,sol(j),sol(j+1),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
-		'			if new_letter=0 then
-		'				new_letter=abc_size
-		'				for i=0 to abc_sizem1
-		'					blt=g7(sol(j),sol(j+1),i,sol(j+3),sol(j+4),sol(j+5),sol(j+6))
-		'					if blt>bls then bls=blt:new_letter=i
-		'				next i
-		'				g7b(4,sol(j),sol(j+1),sol(j+3),sol(j+4),sol(j+5),sol(j+6))=new_letter+1
-		'			else
-		'				new_letter-=1
-		'			end if
-		'		case 5
-		'			new_letter=g7b(5,sol(j),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
-		'			if new_letter=0 then
-		'				new_letter=abc_size
-		'				for i=0 to abc_sizem1
-		'					blt=g7(sol(j),i,sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
-		'					if blt>bls then bls=blt:new_letter=i
-		'				next i
-		'				g7b(5,sol(j),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))=new_letter+1
-		'			else
-		'				new_letter-=1
-		'			end if
-		'		case 6
-		'			new_letter=g7b(6,sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
-		'			if new_letter=0 then
-		'				new_letter=abc_size
-		'				for i=0 to abc_sizem1
-		'					blt=g7(i,sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
-		'					if blt>bls then bls=blt:new_letter=i
-		'				next i
-		'				g7b(6,sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))=new_letter+1
-		'			else
-		'				new_letter-=1
-		'			end if
-		'	end select
+		case 7
+			new_letter=abc_size
+			select case map2b(curr_symbol,k)
+				case 0
+					new_letter=g7b(0,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))
+					if new_letter=0 then
+						new_letter=abc_size
+						for i=0 to abc_sizem1
+							blt=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),i)
+							if blt>bls then bls=blt:new_letter=i
+						next i
+						g7b(0,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))=new_letter+1
+					else
+						new_letter-=1
+					end if
+				case 1
+					new_letter=g7b(1,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+6))
+					if new_letter=0 then
+						new_letter=abc_size
+						for i=0 to abc_sizem1
+							blt=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),i,sol(j+6))
+							if blt>bls then bls=blt:new_letter=i
+						next i
+						g7b(1,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+6))=new_letter+1
+					else
+						new_letter-=1
+					end if
+				case 2
+					new_letter=g7b(2,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+5),sol(j+6))
+					if new_letter=0 then
+						new_letter=abc_size
+						for i=0 to abc_sizem1
+							blt=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),i,sol(j+5),sol(j+6))
+							if blt>bls then bls=blt:new_letter=i
+						next i
+						g7b(2,sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+5),sol(j+6))=new_letter+1
+					else
+						new_letter-=1
+					end if
+				case 3
+					new_letter=g7b(3,sol(j),sol(j+1),sol(j+2),sol(j+4),sol(j+5),sol(j+6))
+					if new_letter=0 then
+						new_letter=abc_size
+						for i=0 to abc_sizem1
+							blt=g7(sol(j),sol(j+1),sol(j+2),i,sol(j+4),sol(j+5),sol(j+6))
+							if blt>bls then bls=blt:new_letter=i
+						next i
+						g7b(3,sol(j),sol(j+1),sol(j+2),sol(j+4),sol(j+5),sol(j+6))=new_letter+1
+					else
+						new_letter-=1
+					end if
+				case 4
+					new_letter=g7b(4,sol(j),sol(j+1),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
+					if new_letter=0 then
+						new_letter=abc_size
+						for i=0 to abc_sizem1
+							blt=g7(sol(j),sol(j+1),i,sol(j+3),sol(j+4),sol(j+5),sol(j+6))
+							if blt>bls then bls=blt:new_letter=i
+						next i
+						g7b(4,sol(j),sol(j+1),sol(j+3),sol(j+4),sol(j+5),sol(j+6))=new_letter+1
+					else
+						new_letter-=1
+					end if
+				case 5
+					new_letter=g7b(5,sol(j),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
+					if new_letter=0 then
+						new_letter=abc_size
+						for i=0 to abc_sizem1
+							blt=g7(sol(j),i,sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
+							if blt>bls then bls=blt:new_letter=i
+						next i
+						g7b(5,sol(j),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))=new_letter+1
+					else
+						new_letter-=1
+					end if
+				case 6
+					new_letter=g7b(6,sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
+					if new_letter=0 then
+						new_letter=abc_size
+						for i=0 to abc_sizem1
+							blt=g7(i,sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
+							if blt>bls then bls=blt:new_letter=i
+						next i
+						g7b(6,sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))=new_letter+1
+					else
+						new_letter-=1
+					end if
+			end select
 		case 8
 			new_letter=abc_size
 			#include "solver_pickletter_bh8.bi"

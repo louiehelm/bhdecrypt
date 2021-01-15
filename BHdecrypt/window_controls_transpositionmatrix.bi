@@ -81,7 +81,7 @@ case button_creatematrix_transpose
 				for i=1 to info_length
 					info(i)=licm1(licm2(i)) 'tp
 				next i
-				ui_editbox_settext(input_text,info_to_string(info(),info_length,info_x,info_y,info_numerical))
+''undo				ui_editbox_settext(input_text,info_to_string(info(),info_length,info_x,info_y,info_numerical,0,0))
 			else ui_editbox_settext(output_text,"Error: no transposition matrix active")
 			end if
 		else ui_editbox_settext(output_text,soi)
@@ -110,7 +110,7 @@ case button_creatematrix_untranspose
 				for i=1 to info_length
 					info(licm2(i))=licm1(i) 'utp
 				next i
-				ui_editbox_settext(input_text,info_to_string(info(),info_length,info_x,info_y,info_numerical))
+				ui_editbox_settext(input_text,info_to_string(info(),info_length,info_x,info_y,info_numerical,0,0))
 			else ui_editbox_settext(output_text,"Error: no transposition matrix active")
 			end if
 		else ui_editbox_settext(output_text,soi)
@@ -130,6 +130,6 @@ case button_creatematrix_exportoutput
 					end if
 				next x
 			next y
-			if i>0 then ui_editbox_settext(output_text,info_to_string(tm(),i,tma_dx,tma_dy,1))
+			if i>0 then ui_editbox_settext(output_text,info_to_string(tm(),i,tma_dx,tma_dy,1,0,0))
 		end if
 	end if

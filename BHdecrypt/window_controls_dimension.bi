@@ -34,7 +34,7 @@ case button_dimension_custom
 						y1=str((info_length\info_x)+1)
 					end if
 				end if	
-				ui_editbox_settext(input_text,info_to_string(info(),val(x1)*val(y1),val(x1),val(y1),info_numerical))
+				ui_editbox_settext(input_text,info_to_string(info(),val(x1)*val(y1),val(x1),val(y1),info_numerical,0,0))
 			else ui_editbox_settext(output_text,soi)
 			end if
 		end if	
