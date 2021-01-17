@@ -33085,22 +33085,9 @@ end sub
 
 sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 	
-	dim as short tn=cint(tn_ptr)
-	
-	thread(tn).thread_active=1
-	thread(tn).thread_stop=0
-	thread(tn).solver_waiting=1
-	
-	dim as integer local_outputbatch,local_pcmode,local_outputdir,local_outputimp
-	dim as integer g,h,i,j,k,l,m,s,e,x,z,z1,z2,z3,z4,nl2,al,lv,lr,lvmax,frcmax,improved,local_advstats,num_ngrams
-	dim as integer abc_size,abc_sizem1,new_letter,old_letter,curr_symbol,older_letter
-	dim as integer ll,b,bm,new_ngram_score,old_ngram_score,bl,ioc_int,fastent
-	dim as uinteger state,it,iterations,iterations_total,rr,random_restarts,seed=tn
-	dim as double local_over,new_score,old_score,best_score,temp,temp_min,start_temp,temp1,onesixl,hi
-	dim as double bbest,bioc,entweight,ngramfactor,multiplicityweight,curr_temp,ngf,ngfal,score_needed
-	dim as double entropy,old_entropy,ent2,ent_score_norm,tempdiv
-	dim as string filename,solstring
-	
+	#include "solver_variables.bi"
+
+	dim as integer solver_output=0 'solver id 
 	dim as ubyte key1(constcip)
 	dim as ubyte key2(constcip)
 	dim as ubyte sol(constcip)
@@ -33116,11 +33103,8 @@ sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 	dim as byte cribkey(constcip)
 	dim as double enttable(constent)
 	dim as byte sr(10),lnb(0)
-	
-	dim as integer solver_output=0
-	dim as integer rl(40)
-	dim as integer blt,bls
-	dim as double d,mc,mc_minus
+
+	dim as integer x
 	
 	dim as short maps(constcip)
 	dim as short maps2(constcip)
@@ -33142,29 +33126,15 @@ sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 			next i
 			
 			select case ngram_size
-				case 8:tempdiv=2
-				'case 10:tempdiv=2
-				case else:tempdiv=3
+				case 2,3,4,5:tempdiv=3
+				case 6:tempdiv=2.75
+				case 7:tempdiv=2.5
+				case 8:tempdiv=2.25
+				case 10:tempdiv=2
+				case else:tempdiv=2
 			end select
 			
-			local_advstats=thread(tn).advstats
-			local_pcmode=thread(tn).pcmode
-			local_outputdir=solvesub_outputdir
-			local_outputbatch=solvesub_outputbatch
-			local_outputimp=solvesub_outputimp
-			local_over=solvesub_scoreover
-			random_restarts=thread(tn).restarts
-			entweight=thread(tn).entweight
-			ngramfactor=thread(tn).ngramfactor
-			iterations_total=thread(tn).iterations
-			multiplicityweight=thread(tn).multiplicityweight
-			temp1=thread(tn).temperature
-			abc_size=ngram_alphabet_size
-			abc_sizem1=ngram_alphabet_size-1
-			fastent=solvesub_fastent
-			
-			l=thread(tn).l 'cipher length
-			s=thread(tn).s 'cipher symbols
+			#include "solver_settings.bi"
 			
 			ll=l*(l-1)
 			al=l-(ngram_size-1)
@@ -33251,6 +33221,8 @@ sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 				onesixl=1.7/l
 				hi=1.0/highgram
 				best_score=0
+
+				solution_timer=timer
 				
 				for lv=1 to lvmax
 					
@@ -33361,10 +33333,19 @@ sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 							
 							mc=5
 							mc_minus=(mc-1)/iterations
+
+							accept=1
 							
 							for it=1 to iterations
 								
 								'---------------------------------------------------------------------
+
+								#include "solver_picksymbol.bi"
+								
+								if accept=0 then old_score-=temp*map1(curr_symbol,0)*onesixl*old_score/new_score
+								'if accept=0 then old_score-=temp*map2(curr_symbol,0)/al*(old_score/new_score)
+								
+								temp-=temp_min
 								
 								old_letter=stl(curr_symbol)
 								old_ngram_score=new_ngram_score
@@ -33444,7 +33425,8 @@ sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 								'---------------------------------------------------------------------
 								
 								if score_needed<0 then
-									
+
+									accept=1
 									frq(old_letter)-=mape2(curr_symbol)
 									frq(new_letter)+=mape2(curr_symbol)
 									stl(curr_symbol)=new_letter
@@ -33473,7 +33455,7 @@ sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 									
 									old_score=new_score
 									
-									#include "solver_picksymbol.bi"
+							'		#include "solver_picksymbol.bi"
 									
 									if new_score>best_score then
 										
@@ -33504,17 +33486,18 @@ sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 									end if
 									
 								else
-									
+
+									accept=0
 									new_ngram_score=old_ngram_score
 									entropy=old_entropy
 									
-									#include "solver_picksymbol.bi"
+							'		#include "solver_picksymbol.bi"
 									
 									old_score-=temp*map1(curr_symbol,0)*onesixl
 									
 								end if
 								
-								temp-=temp_min
+							'	temp-=temp_min
 								
 								thread(tn).iterations_completed+=1
 								if thread(tn).solver_stop=1 then exit for,for,for,for,for
@@ -33530,7 +33513,7 @@ sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 						key2(i)=key1(i)
 					next i
 					
-					curr_temp/=tempdiv
+					curr_temp/=tempdiv/(1+(s/l)) 'curr_temp/=tempdiv
 					
 				next lv
 			
@@ -33538,14 +33521,21 @@ sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 			
 			if thread(tn).solver_stop=0 then
 				
-				#include "ext_hc4.bi"		
-				#include "solver_advstats.bi"		
-				#include "solver_output.bi"
+				#include "ext_hc4.bi"
+				if solution_improved=1 then
+					solution_improved=0
+					solution_timer=timer
+					#include "solver_ioc.bi"
+					#include "solver_advstats.bi"
+					thread(tn).score=best_score
+					#include "solver_output.bi"
+				end if
 				
 				if thread(tn).combine_output=1 then combine_score(thread(tn).itemnumber)=best_score
 				
 				thread(tn).avgscore+=best_score
 				thread(tn).avgioc+=thread(tn).ioc
+				thread(tn).avgpccycles+=thread(tn).pccycles
 				thread(tn).restarts_completed+=1
 				
 			end if
