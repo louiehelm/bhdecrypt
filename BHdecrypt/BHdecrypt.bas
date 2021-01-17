@@ -29432,10 +29432,10 @@ sub thread_load_ngrams(byval none as any ptr)
 						redim g6(0,0,0,0,0,0)
 						redim g6(nm1,nm1,nm1,nm1,nm1,nm1)
 						pi=@g6(0,0,0,0,0,0)
-					'case 7
-					'	redim g7(0,0,0,0,0,0,0)
-					'	redim g7(nm1,nm1,nm1,nm1,nm1,nm1,nm1)
-					'	pi=@g7(0,0,0,0,0,0,0)
+					case 7
+						redim g7(0,0,0,0,0,0,0)
+						redim g7(nm1,nm1,nm1,nm1,nm1,nm1,nm1)
+						pi=@g7(0,0,0,0,0,0,0)
 				end select
 	
 				if fileformat=2 then '1.17 beijinghouse n-gram load
@@ -29475,7 +29475,7 @@ sub thread_load_ngrams(byval none as any ptr)
 									case 4:g4(x1,x2,x3,x4)=h
 									case 5:g5(x1,x2,x3,x4,x5)=h
 									case 6:g6(x1,x2,x3,x4,x5,x6)=h
-									'case 7:g7(x1,x2,x3,x4,x5,x6,x7)=h
+									case 7:g7(x1,x2,x3,x4,x5,x6,x7)=h
 								end select
 								ngram_count+=1
 							end if
@@ -29489,7 +29489,7 @@ sub thread_load_ngrams(byval none as any ptr)
 						wend
 					wend
 					
-				elseif fileformat = 1 then 'binary
+				else 'binary
 					
 					k=0
 					for i=0 to ((nm1+1)^ngram_size)-1
@@ -29516,9 +29516,13 @@ sub thread_load_ngrams(byval none as any ptr)
 				end if
 				
 				#include "thread_load_best_ngram.bi" 'find best n-gram for letter position
-				
+							
 			case 8,10 'beijinghouse 8-gram system
-			
+ 
+				' close already openned file from above first
+				gzclose(gzf)
+				
+				gzf=gzopen(table_file,"rb")
 				dim fd2 as ulong ptr 'file data
 				fd2=allocate(buffer)
 				dim pi2 as ulong ptr
@@ -29574,7 +29578,7 @@ sub thread_load_ngrams(byval none as any ptr)
 					'case 10:pi=@bh10(0,0)
 				end select
 				
-				'loadngramtimer=timer
+				loadngramtimer=timer
 				dim as integer ind1,ind2
 				total_items=ngram_maxtableindex*ngram_maxtableindex
 				
@@ -32481,6 +32485,9 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 	dim as short maps(constcip)
 	dim as short maps2(constcip)
 	dim as integer mi,mj
+
+	dim as ubyte nwor(constcip)
+	dim as double wscore
 	
 	do 'wait for input
 		
@@ -32796,11 +32803,106 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 								next i
 								
 								#include "solver_fastent_bh.bi"
+
+
+
+
+								'word gram score addon:
+								'----------------------
+								'idea: somehow allow a exception for words that end with ING,LY,etc
+								'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
 								
+								dim as integer words=0,nwlen=0,wordlen=0,wngs=7
+								for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
+									sol(i)=sol(i-l)
+								next i
+								for i=1 to l 'convert sol array to words
+									'j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
+									j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
+									if j>0 then
+										'select case nwlen
+										'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'end select
+										if nwlen>0 then
+											words+=1
+											wor(words)=0
+											'wordlen+=nwlen
+											nwlen=0
+										end if
+										if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
+											e=1
+											'if wl(j,0)>=l-(i-1) then
+												for k=0 to wl(j,0)-1
+													if wl(j,k+1)<>sol(i+k)+65 then
+														e=0
+														exit for
+													end if
+												next k
+											'end if
+											if e=1 then
+												words+=1
+												wor(words)=j
+												'wordlen+=wl(j,0)
+												i+=wl(j,0)-1 'skip other letters of the found word
+											else
+												'nwlen+=1
+												'nwor(nwlen)=sol(i)
+												words+=1
+												wor(words)=j
+												'wordlen+=wl(j,0)
+												i+=wl(j,0)-1 'skip other letters of the found word
+											end if
+										else
+											words+=1
+											if wl(j,0)>=l-(i-1) then wor(words)=0 else wor(words)=j
+											'wordlen+=wl(j,0)
+											i+=wl(j,0)-1 'skip other letters of the found word
+										end if
+									else
+										nwlen+=1
+										nwor(nwlen)=sol(i)
+									end if
+								next i
+								'select case nwlen
+								'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'end select
+								if nwlen>0 then
+									words+=1
+									wor(words)=0
+									'wordlen+=nwlen
+									nwlen=0
+								end if
+								if words>1 then
+									wscore = 0
+									for i=1 to words-1 'score words with word 2-grams
+										wscore+=wl2(wor(i),wor(i+1))
+									next i
+									wscore+=wl2(wor(i),wor(1)) 'wrap around
+									if wscore>0 then
+										wscore/=words '-1
+										'wscore/=1+(l/words)/solvesub_seqweight
+				''' do below						new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
+										'new_score+=wscore*solvesub_matchweight 'additive
+									end if
+								end if
+
+
 								dim as double hw=(1+hp/solvesub_bigramhomwdiv) 'bigram substitution stuff
 								if solvesub_bigramhomwdiv=0 then hw=1
-								score_needed=(old_score*hw/ent2/ngfal-new_ngram_score)*hi
-								
+
+								' works by adding in upcoming wordscore to test for score needed
+								score_needed=(old_score*hw/ent2/ngfal/(1+solvesub_wgramfactor*(wscore/255)/6)-new_ngram_score)*hi
+
 								if num_ngrams>score_needed then 'beijinghouse score_needed optimization
 									for i=1 to map1(curr_symbol,0)
 										sol(map1(curr_symbol,i))=new_letter
@@ -32877,6 +32979,10 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 									'end select
 									
 									new_score=new_ngram_score*ngfal*ent2
+									
+									' add in w_score if it passes
+									new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
+									
 									new_score/=hw 'bigram substitution stuff
 									
 									old_score=new_score
@@ -33895,7 +34001,9 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 	dim as short maps(constcip)
 	dim as short maps2(constcip)
 	dim as integer mi,mj
-	
+
+	dim as ubyte nwor(constcip)
+	dim as double wscore
 	do 'wait for input
 		
 		sleep twait
@@ -34044,7 +34152,7 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 				ngf/=1+(s/l)*multiplicityweight
 				ngfal=ngf/al
 				onesixl=1.7/l
-				hi=1/highgram
+				hi=1.0/highgram
 				best_score=0
 				
 				solution_timer=timer
@@ -34192,6 +34300,7 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 								old_norm=norm
 								
 								old_entropy=entropy
+								
 								entropy+=enttable(frq(old_letter)-mape2(curr_symbol))-enttable(frq(old_letter))
 								entropy+=enttable(frq(new_letter)+mape2(curr_symbol))-enttable(frq(new_letter))
 								
@@ -34221,8 +34330,101 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 								
 								norm=1+(ghp/lsdx)
 								
-								score_needed=(old_score*norm/ent2/ngfal-new_ngram_score)*hi
 								
+
+
+								'word gram score addon:
+								'----------------------
+								'idea: somehow allow a exception for words that end with ING,LY,etc
+								'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
+								
+								dim as integer words=0,nwlen=0,wordlen=0,wngs=7
+								for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
+									sol(i)=sol(i-l)
+								next i
+								for i=1 to l 'convert sol array to words
+									'j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
+									j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
+									if j>0 then
+										'select case nwlen
+										'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
+										'end select
+										if nwlen>0 then
+											words+=1
+											wor(words)=0
+											'wordlen+=nwlen
+											nwlen=0
+										end if
+										if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
+											e=1
+											'if wl(j,0)>=l-(i-1) then
+												for k=0 to wl(j,0)-1
+													if wl(j,k+1)<>sol(i+k)+65 then
+														e=0
+														exit for
+													end if
+												next k
+											'end if
+											if e=1 then
+												words+=1
+												wor(words)=j
+												'wordlen+=wl(j,0)
+												i+=wl(j,0)-1 'skip other letters of the found word
+											else
+												'nwlen+=1
+												'nwor(nwlen)=sol(i)
+												words+=1
+												wor(words)=j
+												'wordlen+=wl(j,0)
+												i+=wl(j,0)-1 'skip other letters of the found word
+											end if
+										else
+											words+=1
+											if wl(j,0)>=l-(i-1) then wor(words)=0 else wor(words)=j
+											'wordlen+=wl(j,0)
+											i+=wl(j,0)-1 'skip other letters of the found word
+										end if
+									else
+										nwlen+=1
+										nwor(nwlen)=sol(i)
+									end if
+								next i
+								'select case nwlen
+								'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
+								'end select
+								if nwlen>0 then
+									words+=1
+									wor(words)=0
+									'wordlen+=nwlen
+									nwlen=0
+								end if
+								if words>1 then
+									wscore = 0
+									for i=1 to words-1 'score words with word 2-grams
+										wscore+=wl2(wor(i),wor(i+1))
+									next i
+									wscore+=wl2(wor(i),wor(1)) 'wrap around
+									if wscore>0 then
+										wscore/=words '-1
+										'wscore/=1+(l/words)/solvesub_seqweight
+				''' do below						new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
+										'new_score+=wscore*solvesub_matchweight 'additive
+									end if
+								end if
+								
+								' works by adding in upcoming wordscore to test for score needed
+								score_needed=(old_score*norm/ent2/ngfal/(1+solvesub_wgramfactor*(wscore/255)/6)-new_ngram_score)*hi
+																
 								if num_ngrams>score_needed then 'beijinghouse score_needed optimization
 									for i=1 to map1(curr_symbol,0)
 										sol(map1(curr_symbol,i))=new_letter
@@ -34313,6 +34515,10 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 									'end select
 									
 									new_score=new_ngram_score*ngfal*ent2
+									
+									' add in w_score if it passes
+									new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
+									
 									new_score/=norm 'monoalphabetic groups
 									
 									old_score=new_score
