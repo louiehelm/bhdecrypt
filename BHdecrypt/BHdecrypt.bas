@@ -44,7 +44,10 @@ randomize timer,1 'rng=rand()
 
 #include "fbgfx.bi"
 #include "file.bi"
-#include "zlib.bi"
+
+#define ZWRAP_USE_ZSTD 1
+'#include "zlib.bi"
+#include "zstd_zlibwrapper.bi"
 #include "ui_specific.bi"
 #include "win/shlobj.bi"
 #include "string.bi" ' for format function to replace format

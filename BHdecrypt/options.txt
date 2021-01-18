@@ -1,0 +1,1 @@
+-Wc -march=native,-mtune=native,-Ofast,-funroll-loops,-fomit-frame-pointer,-ftree-loop-im,-fivopts,-pipe
