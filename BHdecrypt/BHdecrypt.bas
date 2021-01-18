@@ -1162,8 +1162,8 @@ sub file_load_settings
 			print #1,"(Substitution + nulls and skips) Manual nulls: "+str(solvesub_pnmannulls)
 			print #1,"(Substitution + nulls and skips) Manual skips: "+str(solvesub_pnmanskips)
 			'print #1,"(Substitution + nulls and skips) Search depth: "+str(solvesub_pndepth)
-			print #1,"(Substitution + polyphones [auto]) Extra letters: "+str(solvesub_polyphones)
-			print #1,"(Substitution + polyphones [auto]) Increment extra letters: "+yesno(solvesub_incpolyphones)
+			'print #1,"(Substitution + polyphones [auto]) Extra letters: "+str(solvesub_polyphones)
+			'print #1,"(Substitution + polyphones [auto]) Increment extra letters: "+yesno(solvesub_incpolyphones)
 			print #1,"(Substitution + sequential homophones) Sequential weight: "+str(solvesub_seqweight)
 			print #1,"(Substitution + sparse polyalphabetism) Polyalphabetism weight: "+str(solvesub_matchweight)
 			print #1,"(Substitution + simple transposition) Use sequential homophones: "+yesno(solvesub_tpseqhom)
@@ -1874,8 +1874,8 @@ sub create_window_optionssolver
 		'ui_listbox_addstring(list_optionssolver,"(Substitution + nulls and skips) Search depth: "+str(solvesub_pndepth))
 	end if
 	
-	ui_listbox_addstring(list_optionssolver,"(Substitution + polyphones [auto]) Extra letters: "+str(solvesub_polyphones))
-	ui_listbox_addstring(list_optionssolver,"(Substitution + polyphones [auto]) Increment extra letters: "+yesno(solvesub_incpolyphones))
+	'ui_listbox_addstring(list_optionssolver,"(Substitution + polyphones [auto]) Extra letters: "+str(solvesub_polyphones))
+	'ui_listbox_addstring(list_optionssolver,"(Substitution + polyphones [auto]) Increment extra letters: "+yesno(solvesub_incpolyphones))
 	
 	'ui_listbox_addstring(list_optionssolver,"(Substitution + row bound fragments) Temperature: "+str(solvesub_rowboundtemp))
 	'ui_listbox_addstring(list_optionssolver,"(Substitution + row bound fragments) Sub restarts: "+str(solvesub_rowboundsubrestarts))
@@ -35242,24 +35242,10 @@ end sub
 
 
 sub bhdecrypt_poly_567810g(byval tn_ptr as any ptr)
+
+	#include "solver_variables.bi"
 	
-	dim as integer tn=cint(tn_ptr)
-	thread(tn).thread_active=1
-	thread(tn).thread_stop=0
-	thread(tn).solver_waiting=1
-	
-	dim as integer abc_size,local_outputbatch,abc_sizem1,frcmax,ioc_int,z,z1,z2,z3,z4
-	dim as integer h,i,j,k,l,s,t,e,new_letter,old_letter,curr_symbol,improved
-	dim as integer new_ngram_score,old_ngram_score,random_restarts,rr,it,ll
-	dim as uinteger iterations,iterations_total,iterations_max,local_advstats
-	dim as double new_score,old_score,best_score,temp,temp_min,start_temp,prev_temp,ls,rndroll,tes
-	dim as double factor,temp1,entweight,ngramfactor,m,multiplicityweight,hc_score,curr_temp,acu,ngf
-	dim as double entropy,old_entropy,ent_score_norm,tempdiv
-	dim as integer local_outputdir,local_outputimp,local_over,ngs,al,ns,r1,rc0_symbol,rc0_number
-	dim as integer rchange,old_position,pos1,old_poly,prev_es,rp,mp,polys,rc1_symbol,rc1_poly
-	dim as uinteger state,seed=tn,lnb(0)
 	dim as integer solver_output=1
-	
 	dim as long frq(constfrq)
 	dim as short frq2(constfrq)
 	dim as short nba(constcip)
@@ -35271,48 +35257,38 @@ sub bhdecrypt_poly_567810g(byval tn_ptr as any ptr)
 	dim as ubyte ngrams(constcip)
 	dim as double enttable(constent)
 	
-	ngs=ngram_size
+	dim as uinteger pcc,poscheck(constcip)
+	dim as integer sr(10),lnb(0)
 	
 	do 'wait for input
 	
 		sleep twait
-
+		
 		if thread(tn).solver_waiting=0 then
 			
 			seed+=threads
 			if (seed*2)-1>2147483647 then seed=tn
 			state=(seed*2)-1
 			
-			select case ngram_size
-				case 8:tempdiv=2
-				case else:tempdiv=3
-			end select
+			'lvmax=1 'solvesub_subrestartlevels
+			'for i=1 to lvmax
+			'	sr(i)=solvesub_subr(i)
+			'next i
 			
-			local_advstats=thread(tn).advstats
-			local_outputdir=solvesub_outputdir
-			local_outputbatch=solvesub_outputbatch
-			local_outputimp=solvesub_outputimp
-			local_over=solvesub_scoreover
-			random_restarts=thread(tn).restarts
-			entweight=thread(tn).entweight
-			ngramfactor=thread(tn).ngramfactor	
-			iterations_total=thread(tn).iterations
-			multiplicityweight=thread(tn).multiplicityweight
-			temp1=thread(tn).temperature
-			abc_size=ngram_alphabet_size
-			abc_sizem1=ngram_alphabet_size-1
+			'select case ngram_size
+			'	case 5:tempdiv=3
+			'	case 6:tempdiv=2.75
+			'	case 7:tempdiv=2.5
+			'	case 8:tempdiv=2.25
+			'	case 10:tempdiv=2
+			'end select
 			
-			l=thread(tn).l
-			s=thread(tn).s
+			#include "solver_settings.bi"
 			
 			m=s/l
 			ls=l/s
 			ll=l*(l-1)
-			al=l-(ngs-1)
-			
-			'for i=1 to l
-			'	enttable(i)=abs(logbx(i/l,2)*(i/l))
-			'next i
+			al=l-(ngram_size-1)
 			
 			for i=1 to l*ngram_size
 				enttable(i)=abs(logbx(i/(l*ngram_size),2)*(i/(l*ngram_size)))
@@ -35325,12 +35301,20 @@ sub bhdecrypt_poly_567810g(byval tn_ptr as any ptr)
 				if frc(nba(i))>frcmax then frcmax=frc(nba(i))
 			next i
 			
-			erase frq
 			dim as short map1(s,frcmax)
-			dim as short map2(s,frcmax*ngs)
-			dim as short map3(l,ngs)
+			dim as short map2(s,frcmax*ngram_size)
+			'dim as short map2b(s,frcmax*ngram_size)
+			dim as short map3(l,ngram_size)
+			'dim as short map3b(l,ngram_size)
 			dim as short poly_letter(s,abc_size)
 			dim as short poly_count(s,abc_size)
+			
+			'dim as short sol_sr1(l)
+			'dim as short poly_letter_sr1(s,abc_size)
+			'dim as short poly_count_sr1(s,abc_size)
+			'dim as short sol_sr2(l)
+			'dim as short poly_letter_sr2(s,abc_size)
+			'dim as short poly_count_sr2(s,abc_size)
 			
 			for i=1 to s
 				frc(i)=0
@@ -35341,7 +35325,7 @@ sub bhdecrypt_poly_567810g(byval tn_ptr as any ptr)
 					poly_letter(i,j)=0
 				next j
 			next i
-				
+			
 			for i=1 to l
 				map3(i,0)=0
 				map1(nba(i),0)+=1
@@ -35356,37 +35340,40 @@ sub bhdecrypt_poly_567810g(byval tn_ptr as any ptr)
 				next j
 				k+=mape1(i)
 			next i
-			ent_score_norm=(l*ngs)/k
+			ent_score_norm=(l*ngram_size)/k
 			
 			for i=1 to l
-				for j=0 to (ngs-1)
-					if i-j>0 andalso i-j<l-(ngs-2) then
+				for j=0 to (ngram_size-1)
+					h=i-(ngram_size-1)
+					if h+j>0 andalso h+j<l-(ngram_size-2) then
 						e=0
 						for k=1 to map2(nba(i),0)
-							if map2(nba(i),k)=i-j then
+							if map2(nba(i),k)=h+j then
 								e=1
 								exit for
 							end if
 						next k
-						if e=0 then 
+						if e=0 then
 							map2(nba(i),0)+=1
-							map2(nba(i),map2(nba(i),0))=i-j
+							map2(nba(i),map2(nba(i),0))=h+j
+							'map2b(nba(i),map2(nba(i),0))=j
 						end if
 						e=0
 						for k=1 to map3(i,0) 'check needed ???
-							if map3(i,k)=i-j then
+							if map3(i,k)=h+j then
 								e=1
 								exit for
 							end if
 						next k
 						if e=0 then
 							map3(i,0)+=1
-							map3(i,map3(i,0))=i-j
+							map3(i,map3(i,0))=h+j
+							'map3b(i,map3(i,0))=j
 						end if
 					end if
 				next j
 			next i
-					 
+			
 		 	ns=s
 			for i=1 to s
 				pps(i)=thread(tn).key(i)
@@ -35395,423 +35382,562 @@ sub bhdecrypt_poly_567810g(byval tn_ptr as any ptr)
 				ns+=pps(i)
 			next i
 			
-			'temp1=350 'overwrite temp
-			start_temp=(temp1/1.75)*(l/ns)
+			'start_temp=(temp1/1.3)*(l/ns)
+			start_temp=((temp1/4.61538)/3)/((ns/l)/log(l))
 			start_temp/=m_ioc2(nba(),l,s,2)^0.75
+			curr_temp=start_temp
 			best_score=0
+			onesixl=1.7/l
+			ngfent=ngramfactor*ent_score_norm/al
+			solution_timer=timer
 			
-			tes=0
-			for i=1 to s
+			'for lv=1 to lvmax
 				
-				for j=0 to pps(i)-1 'assign initial letters to polyphones
-					do
-						e=0
-						state=48271*state and 2147483647
-						new_letter=abc_size*state shr 31
-						for k=0 to j-1
-							if new_letter=poly_letter(i,k) then
-								e=1
-								exit for
-							end if
-						next k
-					loop until e=0
-					poly_letter(i,j)=new_letter
-				next j
-				
-				for j=1 to map1(i,0) 'assign initial polyphone distribution
-					state=48271*state and 2147483647
-					rp=pps(i)*state shr 31
-					poly_count(i,rp)+=1
-					sol(map1(i,j))=poly_letter(i,rp)
-					frq(poly_letter(i,rp))+=mape1(map1(i,j))
-				next j
-				
-				acu=0
-				for j=0 to pps(i)-1
-					if poly_count(i,j)>0 then acu+=1
-				next j
-				es(i)=acu
-				tes+=acu
-				
-			next i
-			
-			iterations=iterations_total
-			
-			old_score=0
-			temp=start_temp
-			temp_min=temp/iterations
-			
-			rchange=1
-			rc0_symbol=0
-			rc0_number=1
-			rc1_symbol=1
-			rc1_poly=1
-			
-			do
-				rc0_symbol+=1
-				if rc0_symbol>s then rc0_symbol=1
-			loop until pps(rc0_symbol)>1
-			
-			new_ngram_score=0
-			
-			#include "solver_ngram_init.bi"
-		
-			for it=1 to iterations
-				
-				'18945.57547337331
-				'18983.46809050893
-				
-				if rchange=0 then 'change letter distribution of symbol
-				
-					old_position=rc0_number
-					pos1=map1(rc0_symbol,old_position)
-					old_letter=sol(pos1)	
-					for i=0 to pps(rc0_symbol)-1 'find old letter
-						if old_letter=poly_letter(rc0_symbol,i) then
-							old_poly=i
-							poly_count(rc0_symbol,i)-=1
-							exit for
-						end if
-					next i	
-					do
-						state=48271*state and 2147483647
-						rp=pps(rc0_symbol)*state shr 31
-						new_letter=poly_letter(rc0_symbol,rp)
-					loop until new_letter<>old_letter		
-					poly_count(rc0_symbol,rp)+=1		
-					prev_es=es(rc0_symbol)
-					tes-=prev_es
-					acu=0
-					for i=0 to pps(rc0_symbol)-1
-						if poly_count(rc0_symbol,i)>0 then acu+=1
-					next i	
-					es(rc0_symbol)=acu
-					tes+=acu
-					sol(pos1)=new_letter
-					frq(old_letter)-=mape1(pos1)
-					frq(new_letter)+=mape1(pos1)
+				'for lr=1 to sr(lv)
 					
-					old_ngram_score=new_ngram_score
+					'iterations=(iterations_total/sr(lv))/lvmax
 					
-					select case ngram_size
-						case 5
-							for i=1 to map3(pos1,0)
-								j=map3(pos1,i)
-								new_ngram_score+=g5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))-ngrams(j)
+					'for rr=1 to random_restarts
+						
+						erase frq
+						erase poscheck
+						pcc=0
+						tes=0
+						
+						'for i=1 to s
+						'	for j=0 to abc_size
+						'		poly_count(i,j)=0
+						'		poly_letter(i,j)=0
+						'	next j
+						'next i
+						
+						'if lv=1 then
+							for i=1 to s
+								for j=0 to pps(i)-1 'assign initial letters to polyphones
+									do
+										e=0
+										state=48271*state and 2147483647
+										new_letter=abc_size*state shr 31
+										for k=0 to j-1
+											if new_letter=poly_letter(i,k) then
+												e=1
+												exit for
+											end if
+										next k
+									loop until e=0
+									poly_letter(i,j)=new_letter
+								next j
+								for j=1 to map1(i,0) 'assign initial letter distribution
+									state=48271*state and 2147483647
+									rp=pps(i)*state shr 31
+									poly_count(i,rp)+=1
+									sol(map1(i,j))=poly_letter(i,rp)
+									frq(poly_letter(i,rp))+=mape1(map1(i,j))
+								next j
+								acu=0
+								for j=0 to pps(i)-1
+									if poly_count(i,j)>0 then acu+=1
+								next j
+								es(i)=acu
+								tes+=acu
 							next i
-						case 6
-							for i=1 to map3(pos1,0)
-								j=map3(pos1,i)
-								new_ngram_score+=g6(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))-ngrams(j)
-							next i
-						'case 7
-						'	for i=1 to map3(pos1,0)
-						'		j=map3(pos1,i)
-						'		new_ngram_score+=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))-ngrams(j)
+						'else
+						'	for i=1 to l
+						'		sol(i)=sol_sr2(i)
+						'		frq(sol_sr2(i))+=mape1(i)
 						'	next i
-						case 8
-							for i=1 to map3(pos1,0)
-								z=0
-								j=map3(pos1,i)
-								z1=bh4(sol(j),sol(j+1),sol(j+2),sol(j+3))
-								if z1<>0 then
-									z2=bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7))
-									if z2<>0 then z=bh8(z1,z2)
-								end if
-								new_ngram_score+=z-ngrams(j)
-							next i
-						'case 10
-						'	for i=1 to map3(pos1,0)
-						'		z=0
-						'		j=map3(pos1,i)
-						'		z1=bh5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-						'		if z1<>0 then
-						'			z2=bh5(sol(j+5),sol(j+6),sol(j+7),sol(j+8),sol(j+9))
-						'			if z2<>0 then z=bh10(z1,z2)
-						'		end if
-						'		new_ngram_score+=z-ngrams(j)
+						'	for i=1 to s
+						'		for j=0 to pps(i)-1
+						'			poly_letter(i,j)=poly_letter_sr2(i,j)
+						'			poly_count(i,j)=poly_count_sr2(i,j)
+						'		next j
+						'		acu=0
+						'		for j=0 to pps(i)-1
+						'			if poly_count(i,j)>0 then acu+=1
+						'		next j
+						'		es(i)=acu
+						'		tes+=acu
 						'	next i
-					end select	
-					
-				else 'change letter
-					
-					old_poly=rc1_poly-1
-					old_letter=poly_letter(rc1_symbol,old_poly)
-					do
-						e=0
-						state=48271*state and 2147483647
-						new_letter=abc_size*state shr 31
-						for i=0 to pps(rc1_symbol)-1
-							if new_letter=poly_letter(rc1_symbol,i) then
-								e=1
-								exit for
-							end if
+						'end if
+						
+						iterations=iterations_total
+						
+						old_score=0
+						temp=curr_temp
+						temp_min=temp/iterations
+						
+						rc0_symbol=0
+						rc0_number=0
+						do
+							rc0_symbol+=1
+							if rc0_symbol>s then rc0_symbol=1
+						loop until pps(rc0_symbol)>1
+						
+						rc1_symbol=1
+						rc1_poly=1
+						
+						new_ngram_score=0
+						
+						'mc=5
+						'mc_minus=(mc-1)/iterations
+						
+						entropy=0
+						for i=0 to abc_sizem1
+							entropy+=enttable(frq(i))
 						next i
-					loop until e=0
-					poly_letter(rc1_symbol,old_poly)=new_letter
-					for i=1 to map1(rc1_symbol,0)
-						if old_letter=sol(map1(rc1_symbol,i)) then
-							sol(map1(rc1_symbol,i))=new_letter
-							frq(old_letter)-=mape1(map1(rc1_symbol,i))
-							frq(new_letter)+=mape1(map1(rc1_symbol,i))
-						end if
-					next i
-					
-					old_ngram_score=new_ngram_score
-					
-					select case ngram_size
-						case 5
-							for i=1 to map2(rc1_symbol,0)
-								j=map2(rc1_symbol,i)
-								new_ngram_score+=g5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))-ngrams(j)
-							next i
-						case 6
-							for i=1 to map2(rc1_symbol,0)
-								j=map2(rc1_symbol,i)
-								new_ngram_score+=g6(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))-ngrams(j)
-							next i
-						'case 7
-						'	for i=1 to map2(rc1_symbol,0)
-						'		j=map2(rc1_symbol,i)
-						'		new_ngram_score+=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))-ngrams(j)
-						'	next i
-						case 8
-							for i=1 to map2(rc1_symbol,0)
-								j=map2(rc1_symbol,i)
-								z=0
-								z1=bh4(sol(j),sol(j+1),sol(j+2),sol(j+3))
-								if z1<>0 then
-									z2=bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7))
-									if z2<>0 then z=bh8(z1,z2)
+						
+						#include "solver_ngram_init.bi"
+						
+						for it=1 to iterations
+							
+							'if lv=lvmax then mc-=mc_minus
+							
+							state=48271*state and 2147483647
+							rndroll=state/2147483648
+							
+							if rndroll>solvesub_sdbias then
+								rchange=0
+								rc0_number+=1
+								if rc0_number>map1(rc0_symbol,0) then
+									rc0_number=1
+									do
+										rc0_symbol+=1
+										if rc0_symbol>s then rc0_symbol=1
+									loop until pps(rc0_symbol)>1
 								end if
-								new_ngram_score+=z-ngrams(j)
-							next i
-						'case 10
-						'	for i=1 to map2(rc1_symbol,0)
-						'		j=map2(rc1_symbol,i)
-						'		z=0
-						'		z1=bh5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-						'		if z1<>0 then
-						'			z2=bh5(sol(j+5),sol(j+6),sol(j+7),sol(j+8),sol(j+9))
-						'			if z2<>0 then z=bh10(z1,z2)
-						'		end if
-						'		new_ngram_score+=z-ngrams(j)
-						'	next i
-					end select
-					
-				end if
-				
-				entropy=0
-				for i=0 to abc_sizem1
-					entropy+=enttable(frq(i))
-				next i
-				
-				ngf=ngramfactor*ent_score_norm
-				ngf/=1+(((tes-s)/l)*multiplicityweight)
-				new_score=(new_ngram_score*ngf)/al
-				
-				select case solvesub_fastent
-					case 0:new_score*=fastpow1_single(entropy,entweight)
-					case 1:new_score*=entropy^0.25
-					case 2:new_score*=entropy^0.5
-					case 3:new_score*=entropy^0.75
-					case 4:new_score*=entropy
-					case 5:new_score*=entropy^1.5
-					case 6:new_score*=entropy*entropy
-				end select
-				
-				if new_score>old_score then
-					
-					if rchange=0 then
-						select case ngram_size
-							case 5
-								for i=1 to map3(pos1,0)
-									j=map3(pos1,i)
-									ngrams(j)=g5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+								'if accept=0 then old_score-=temp*(1/l)
+								if accept=0 then old_score-=temp*1*onesixl*old_score/new_score
+								'if accept=0 then old_score-=temp*map3(map1(rc0_symbol,rc0_number),0)/al*(old_score/new_score)  '<--- NEW
+							else 'letter
+								rchange=1
+								do
+									rc1_poly+=1
+									if rc1_poly>pps(rc1_symbol) then
+										rc1_poly=1
+										rc1_symbol+=1
+										if rc1_symbol>s then rc1_symbol=1
+									end if
+								loop until poly_count(rc1_symbol,rc1_poly-1)>0
+								'if accept=0 then old_score-=temp*((poly_count(rc1_symbol,rc1_poly-1))/l)
+								if accept=0 then old_score-=temp*poly_count(rc1_symbol,rc1_poly-1)*onesixl*old_score/new_score
+								'if accept=0 then old_score-=temp*poly_count(rc1_symbol,rc1_poly-1)/al*(old_score/new_score) '<--- NEW
+							end if
+							
+							if rchange=0 then 'change letter distribution
+								
+								pos1=map1(rc0_symbol,rc0_number)
+								old_letter=sol(pos1)	
+								for i=0 to pps(rc0_symbol)-1 'find old letter
+									if old_letter=poly_letter(rc0_symbol,i) then
+										old_poly=i
+										poly_count(rc0_symbol,i)-=1
+										exit for
+									end if
+								next i						
+								do 'roll new letter
+									state=48271*state and 2147483647
+									rp=pps(rc0_symbol)*state shr 31
+									new_letter=poly_letter(rc0_symbol,rp)
+								loop until new_letter<>old_letter		
+								poly_count(rc0_symbol,rp)+=1
+								prev_es=es(rc0_symbol)
+								tes-=prev_es
+								acu=0
+								for i=0 to pps(rc0_symbol)-1
+									if poly_count(rc0_symbol,i)>0 then acu+=1
 								next i
-							case 6
-								for i=1 to map3(pos1,0)
-									j=map3(pos1,i)
-									ngrams(j)=g6(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))
+								es(rc0_symbol)=acu
+								tes+=acu
+								sol(pos1)=new_letter
+								
+								frq(old_letter)-=mape1(pos1)
+								frq(new_letter)+=mape1(pos1)
+								
+								'entropy+=enttable(frq(old_letter)-mape1(pos1))-enttable(frq(old_letter))
+								'entropy+=enttable(frq(new_letter)+mape1(pos1))-enttable(frq(new_letter))
+								
+								old_ngram_score=new_ngram_score
+								
+								select case ngram_size
+									case 5
+										for i=1 to map3(pos1,0)
+											j=map3(pos1,i)
+											new_ngram_score+=g5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))-ngrams(j)
+										next i
+									case 6
+										for i=1 to map3(pos1,0)
+											j=map3(pos1,i)
+											new_ngram_score+=g6(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))-ngrams(j)
+										next i
+									case 7
+										for i=1 to map3(pos1,0)
+											j=map3(pos1,i)
+											new_ngram_score+=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))-ngrams(j)
+										next i
+									case 8
+										for i=1 to map3(pos1,0)
+											z=0
+											j=map3(pos1,i)
+											z1=bh4(sol(j),sol(j+1),sol(j+2),sol(j+3))
+											if z1<>0 then
+												z2=bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7))
+												if z2<>0 then z=bh8(z1,z2)
+											end if
+											new_ngram_score+=z-ngrams(j)
+										next i
+									'case 10
+									'	for i=1 to map3(pos1,0)
+									'		z=0
+									'		j=map3(pos1,i)
+									'		z1=bh5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+									'		if z1<>0 then
+									'			z2=bh5(sol(j+5),sol(j+6),sol(j+7),sol(j+8),sol(j+9))
+									'			if z2<>0 then z=bh10(z1,z2)
+									'		end if
+									'		new_ngram_score+=z-ngrams(j)
+									'	next i
+								end select
+								
+							else 'change letter
+								
+								old_poly=rc1_poly-1
+								old_letter=poly_letter(rc1_symbol,old_poly)
+								
+								'state=48271*state and 2147483647
+								'd=4*state shr 31
+								'
+								'if d>mc then
+									do
+										e=0
+										state=48271*state and 2147483647
+										new_letter=abc_size*state shr 31
+										for i=0 to pps(rc1_symbol)-1
+											if new_letter=poly_letter(rc1_symbol,i) then
+												e=1
+												exit for
+											end if
+										next i
+									loop until e=0
+								'else
+								'	do
+								'		state=48271*state and 2147483647
+								'		i=1+map1(rc1_symbol,0)*state shr 31
+								'	loop until old_letter=sol(map1(rc1_symbol,i))
+								'	state=48271*state and 2147483647
+								'	k=1+map3(map1(rc1_symbol,i),0)*state shr 31
+								'	j=map3(rc1_symbol,k)
+								'	
+								'	select case ngram_size
+								'		case 8
+								'			new_letter=abc_size
+								'			curr_symbol=rc1_symbol
+								'			#include "solver_pickletter_bh8_poly.bi"
+								'	end select
+								'	e=0
+								'	for i=0 to pps(rc1_symbol)-1
+								'		if new_letter=poly_letter(rc1_symbol,i) then
+								'			e=1
+								'			exit for
+								'		end if
+								'	next i
+								'	if e=1 or new_letter=old_letter or new_letter=abc_size then
+								'		do
+								'			e=0
+								'			state=48271*state and 2147483647
+								'			new_letter=abc_size*state shr 31
+								'			for i=0 to pps(rc1_symbol)-1
+								'				if new_letter=poly_letter(rc1_symbol,i) then
+								'					e=1
+								'					exit for
+								'				end if
+								'			next i
+								'		loop until e=0
+								'	end if
+								'end if
+								
+								poly_letter(rc1_symbol,old_poly)=new_letter
+								for i=1 to map1(rc1_symbol,0)
+									if old_letter=sol(map1(rc1_symbol,i)) then
+										sol(map1(rc1_symbol,i))=new_letter
+										frq(old_letter)-=mape1(map1(rc1_symbol,i))
+										frq(new_letter)+=mape1(map1(rc1_symbol,i))
+									end if
 								next i
-							'case 7
-							'	for i=1 to map3(pos1,0)
-							'		j=map3(pos1,i)
-							'		ngrams(j)=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
-							'	next i
-							case 8
-								for i=1 to map3(pos1,0)
-									j=map3(pos1,i)
-									ngrams(j)=bh8(bh4(sol(j),sol(j+1),sol(j+2),sol(j+3)),bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7)))
+								
+								'entropy=0
+								'for i=0 to abc_sizem1
+								'	entropy+=enttable(frq(i))
+								'next i
+								
+								old_ngram_score=new_ngram_score
+								
+								pcc+=1
+								
+								for i=1 to map1(rc1_symbol,0)
+									h=map1(rc1_symbol,i)
+									if new_letter=sol(h) then
+										select case ngram_size
+											case 5
+												for k=1 to map3(h,0)
+													j=map3(h,k)
+													if poscheck(j)<pcc then
+														poscheck(j)=pcc
+														new_ngram_score+=g5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))-ngrams(j)
+													end if
+												next k
+											case 6
+												for k=1 to map3(h,0)
+													j=map3(h,k)
+													if poscheck(j)<pcc then
+														poscheck(j)=pcc
+														new_ngram_score+=g6(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))-ngrams(j)
+													end if
+												next k
+											case 7
+												for k=1 to map3(h,0)
+													j=map3(h,k)
+													if poscheck(j)<pcc then
+														poscheck(j)=pcc
+														new_ngram_score+=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))-ngrams(j)
+													end if
+												next k
+											case 8
+												for k=1 to map3(h,0)
+													j=map3(h,k)
+													if poscheck(j)<pcc then
+														z=0
+														poscheck(j)=pcc
+														z1=bh4(sol(j),sol(j+1),sol(j+2),sol(j+3))
+														if z1<>0 then
+															z2=bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7))
+															if z2<>0 then z=bh8(z1,z2)
+														end if
+														new_ngram_score+=z-ngrams(j)
+													end if
+												next k
+											'case 10
+											'	for i=k to map3(h,0)
+											'		j=map3(h,k)
+											'		if poscheck(j)<pcc then
+											'			z=0
+											'			poscheck(j)=pcc
+											'			z1=bh5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+											'			if z1<>0 then
+											'				z2=bh5(sol(j+5),sol(j+6),sol(j+7),sol(j+8),sol(j+9))
+											'				if z2<>0 then z=bh10(z1,z2)
+											'			end if
+											'			new_ngram_score+=z-ngrams(j)
+											'		end if
+											'	next k
+										end select
+									end if
 								next i
-							'case 10
-							'	for i=1 to map3(pos1,0)
-							'		j=map3(pos1,i)
-							'		ngrams(j)=bh10(bh5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4)),bh5(sol(j+5),sol(j+6),sol(j+7),sol(j+8),sol(j+9)))
-							'	next i
-						end select	
-					end if
-					
-					if rchange=1 then	
-						select case ngram_size
-							case 5
-								for i=1 to map2(rc1_symbol,0)
-									j=map2(rc1_symbol,i)
-									ngrams(j)=g5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-								next i
-							case 6
-								for i=1 to map2(rc1_symbol,0)
-									j=map2(rc1_symbol,i)
-									ngrams(j)=g6(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))
-								next i
-							'case 7
-							'	for i=1 to map2(rc1_symbol,0)
-							'		j=map2(rc1_symbol,i)
-							'		ngrams(j)=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
-							'	next i
-							case 8
-								for i=1 to map2(rc1_symbol,0)
-									j=map2(rc1_symbol,i)
-									ngrams(j)=bh8(bh4(sol(j),sol(j+1),sol(j+2),sol(j+3)),bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7)))
-								next i
-							'case 10
-							'	for i=1 to map2(rc1_symbol,0)
-							'		j=map2(rc1_symbol,i)
-							'		ngrams(j)=bh10(bh5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4)),bh5(sol(j+5),sol(j+6),sol(j+7),sol(j+8),sol(j+9)))
-							'	next i
-						end select	
-					end if
-				
-					old_score=new_score
-					
-					if new_score>best_score then
-						best_score=new_score+0.00001
-						if best_score>thread(tn).score then
-							thread(tn).sectime=timer-sectimer
-							erase frq2
-							for i=1 to l
-								thread(tn).sol(i)=alphabet(sol(i))
-								frq2(sol(i))+=1
-							next i
-							ioc_int=0
+								
+							end if
+							
+							entropy=0
 							for i=0 to abc_sizem1
-								ioc_int+=ioctable(frq2(i))
+								entropy+=enttable(frq(i))
 							next i
-							thread(tn).ioc=ioc_int/ll
-							thread(tn).ent=entropy
-							thread(tn).effectivesymbols=tes
-							thread(tn).multiplicity=tes/l
-							thread(tn).score=best_score
-						end if
-					end if
-					
-					state=48271*state and 2147483647
-					rndroll=state/2147483648
-					
-					if rndroll>0.6 then 'distribution
-						rchange=0
-						rc0_number+=1
-						if rc0_number>map1(rc0_symbol,0) then 
-							rc0_number=1
-							do
-								rc0_symbol+=1
-								if rc0_symbol>s then rc0_symbol=1
-							loop until pps(rc0_symbol)>1
-						end if
-					else 'letter
-						rchange=1
-						'do
-							rc1_poly+=1
-							if rc1_poly>pps(rc1_symbol) then
-								rc1_poly=1
-								rc1_symbol+=1
-								if rc1_symbol>s then rc1_symbol=1
+							
+							'ngf=ngramfactor*ent_score_norm
+							'ngf/=1+(((tes-s)/l)*multiplicityweight)
+							'new_score=(new_ngram_score*ngf)/al
+							
+							new_score=new_ngram_score*ngfent/(1+(((tes-s)/l)*multiplicityweight))
+							
+							select case solvesub_fastent
+								case 0:new_score*=fastpow1_single(entropy,entweight)
+								case 1:new_score*=entropy^0.25
+								case 2:new_score*=entropy^0.5
+								case 3:new_score*=entropy^0.75
+								case 4:new_score*=entropy
+								case 5:new_score*=entropy^1.5
+								case 6:new_score*=entropy*entropy
+							end select
+							
+							if new_score>old_score then
+								
+								if rchange=0 then
+									'frq(old_letter)-=mape1(pos1)
+									'frq(new_letter)+=mape1(pos1)
+									select case ngram_size
+										case 5
+											for i=1 to map3(pos1,0)
+												j=map3(pos1,i)
+												ngrams(j)=g5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+											next i
+										case 6
+											for i=1 to map3(pos1,0)
+												j=map3(pos1,i)
+												ngrams(j)=g6(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))
+											next i
+										case 7
+											for i=1 to map3(pos1,0)
+												j=map3(pos1,i)
+												ngrams(j)=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
+											next i
+										case 8
+											for i=1 to map3(pos1,0)
+												j=map3(pos1,i)
+												ngrams(j)=bh8(bh4(sol(j),sol(j+1),sol(j+2),sol(j+3)),bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7)))
+											next i
+										'case 10
+										'	for i=1 to map3(pos1,0)
+										'		j=map3(pos1,i)
+										'		ngrams(j)=bh10(bh5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4)),bh5(sol(j+5),sol(j+6),sol(j+7),sol(j+8),sol(j+9)))
+										'	next i
+									end select	
+								else 'rchange=1
+									for i=1 to map1(rc1_symbol,0)
+										h=map1(rc1_symbol,i)
+										if new_letter=sol(h) then
+											select case ngram_size
+												case 5
+													for k=1 to map3(h,0)
+														j=map3(h,k)
+														if poscheck(j)=pcc then ngrams(j)=g5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+													next k
+												case 6
+													for k=1 to map3(h,0)
+														j=map3(h,k)
+														if poscheck(j)=pcc then ngrams(j)=g6(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5))
+													next k
+												case 7
+													for k=1 to map3(h,0)
+														j=map3(h,k)
+														if poscheck(j)=pcc then ngrams(j)=g7(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4),sol(j+5),sol(j+6))
+													next k
+												case 8
+													for k=1 to map3(h,0)
+														j=map3(h,k)
+														if poscheck(j)=pcc then ngrams(j)=bh8(bh4(sol(j),sol(j+1),sol(j+2),sol(j+3)),bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7)))
+													next k
+												'case 10
+												'	for k=1 to map3(h,0)
+												'		j=map3(h,k)
+												'		if poscheck(j)=pcc then ngrams(j)=bh10(bh5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4)),bh5(sol(j+5),sol(j+6),sol(j+7),sol(j+8),sol(j+9)))
+												'	next k
+											end select
+										end if
+									next i
+								end if
+								
+								old_score=new_score
+								
+								if new_score>best_score then
+									
+									solution_improved=1
+									best_score=new_score+0.00001
+									thread(tn).sectime=timer-sectimer
+									for i=1 to l
+										thread(tn).sol(i)=alphabet(sol(i))
+									next i
+									thread(tn).ent=entropy
+									thread(tn).effectivesymbols=tes
+									thread(tn).multiplicity=tes/l
+									
+									'for i=1 to l
+									'	sol_sr1(i)=sol(i)
+									'next i
+									'for i=1 to s
+									'	for j=0 to pps(i)-1
+									'		poly_letter_sr1(i,j)=poly_letter(i,j)
+									'		poly_count_sr1(i,j)=poly_count(i,j)
+									'	next j
+									'next i
+									
+								end if
+								
+								if solution_improved=1 andalso timer-solution_timer>solvesub_solutionreleasetimer then
+									solution_improved=0 'consume
+									solution_timer=timer
+									#include "solver_ioc.bi"
+									#include "solver_advstats.bi"
+									thread(tn).score=best_score
+									#include "solver_output.bi"
+								end if
+								
+								accept=1
+								
+							else
+								
+								new_ngram_score=old_ngram_score
+								
+								if rchange=0 then 'undo distribution
+									sol(map1(rc0_symbol,rc0_number))=old_letter
+									
+									frq(new_letter)-=mape1(map1(rc0_symbol,rc0_number))
+									frq(old_letter)+=mape1(map1(rc0_symbol,rc0_number))
+									
+									poly_count(rc0_symbol,rp)-=1
+									poly_count(rc0_symbol,old_poly)+=1
+									tes-=es(rc0_symbol)
+									tes+=prev_es
+									es(rc0_symbol)=prev_es
+								else 'undo letter
+									poly_letter(rc1_symbol,old_poly)=old_letter
+									for i=1 to map1(rc1_symbol,0)
+										if new_letter=sol(map1(rc1_symbol,i)) then
+											sol(map1(rc1_symbol,i))=old_letter
+											frq(new_letter)-=mape1(map1(rc1_symbol,i))
+											frq(old_letter)+=mape1(map1(rc1_symbol,i))
+										end if
+									next i
+								end if
+								
+								accept=0
+								
 							end if
-						'loop until poly_count(rc1_symbol,rc1_poly-1)>0 'needed?
-					end if
+							
+							temp-=temp_min
+							
+							thread(tn).iterations_completed+=1
+							if thread(tn).solver_stop=1 then exit for
+							if pausetask=1 then do:sleep 10:loop until pausetask=0
+							
+						next it
+						
+					'next rr
 					
-				else
-					
-					new_ngram_score=old_ngram_score
-					
-					if rchange=0 then 'undo distribution
-						sol(map1(rc0_symbol,old_position))=old_letter
-						frq(new_letter)-=mape1(map1(rc0_symbol,old_position))
-						frq(old_letter)+=mape1(map1(rc0_symbol,old_position))
-						poly_count(rc0_symbol,rp)-=1
-						poly_count(rc0_symbol,old_poly)+=1
-						tes-=es(rc0_symbol)
-						tes+=prev_es
-						es(rc0_symbol)=prev_es				
-					else 'undo letter		 
-						poly_letter(rc1_symbol,old_poly)=old_letter
-						for i=1 to map1(rc1_symbol,0)
-							if new_letter=sol(map1(rc1_symbol,i)) then
-								sol(map1(rc1_symbol,i))=old_letter
-								frq(new_letter)-=mape1(map1(rc1_symbol,i))
-								frq(old_letter)+=mape1(map1(rc1_symbol,i))
-							end if
-						next i				 
-					end if
-					
-					state=48271*state and 2147483647
-					rndroll=state/2147483648
-					
-					if rndroll>0.6 then 'distribution
-						rchange=0	 
-						rc0_number+=1
-						if rc0_number>map1(rc0_symbol,0) then 
-							rc0_number=1
-							do
-								rc0_symbol+=1
-								if rc0_symbol>s then rc0_symbol=1
-							loop until pps(rc0_symbol)>1
-						end if
-						old_score-=temp*(1/l)
-					else 'letter
-						rchange=1
-						'do
-							rc1_poly+=1
-							if rc1_poly>pps(rc1_symbol) then
-								rc1_poly=1
-								rc1_symbol+=1
-								if rc1_symbol>s then rc1_symbol=1
-							end if
-						'loop until poly_count(rc1_symbol,rc1_poly-1)>0
-						old_score-=temp*((poly_count(rc1_symbol,rc1_poly-1))/l)
-					end if
+				'next lr
 				
-				end if
+				'for i=1 to l
+				'	sol_sr2(i)=sol_sr1(i)
+				'next i
+				'for i=1 to s
+				'	for j=0 to pps(i)-1
+				'		poly_letter_sr2(i,j)=poly_letter_sr1(i,j)
+				'		poly_count_sr2(i,j)=poly_count_sr1(i,j)
+				'	next j
+				'next i
+				'
+				'curr_temp/=tempdiv/(1+(s/l)) 'curr_temp/=tempdiv
 				
-				temp-=temp_min
-				
-				thread(tn).iterations_completed+=1
-				if thread(tn).solver_stop=1 then exit for
-				if pausetask=1 then do:sleep 10:loop until pausetask=0
-				
-			next it
-			
-			dim as string filename,solstring
+			'next lv
 			
 			if thread(tn).solver_stop=0 then
 				
-				if local_advstats=1 then
-					thread(tn).repeats=m_repeats(thread(tn).sol(),l,0)
-					thread(tn).pccycles=m_pccycles_longshort(thread(tn).sol(),nba(),l,s)
+				if solution_improved=1 then
+					solution_improved=0
+					solution_timer=timer
+					#include "solver_ioc.bi"
+					#include "solver_advstats.bi"
+					thread(tn).score=best_score
+					#include "solver_output.bi"
 				end if
-				
-				#include "solver_output.bi"
 				
 				if thread(tn).combine_output=1 then combine_score(thread(tn).itemnumber)=best_score
 				
 				thread(tn).avgscore+=best_score
 				thread(tn).avgioc+=thread(tn).ioc
+				thread(tn).avgpccycles+=thread(tn).pccycles
+				thread(tn).restarts_completed+=1
 				
 			end if
 			
-			thread(tn).restarts_completed+=1
 			thread(tn).solver_waiting=1
-		
+			
 		end if
 		
 	loop until thread(tn).thread_stop=1
