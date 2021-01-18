@@ -1023,7 +1023,7 @@ sub file_load_settings
 	
 	dim as integer i
 	
-	solvesub_ngramloctemp="\N-grams\6-grams_english_beijinghouse_v6.txt.gz"
+	solvesub_ngramloctemp="\N-grams\6-grams_english_beijinghouse_v6.txt.zst"
 	solvesub_batchngramsrestarts=50
 	solvesub_iterations=500000
 	solvesub_iterationsfactor=1.04
@@ -1125,7 +1125,7 @@ sub file_load_settings
 	
 	if fileexists("settings.ini")=0 then 'does not exist
 		open "settings.ini" for output as #1
-			print #1,"Default n-grams: \N-grams\6-grams_english_beijinghouse_v6.txt.gz"
+			print #1,"Default n-grams: \N-grams\6-grams_english_beijinghouse_v6.txt.zst"
 			print #1,"(General) Thread wait: "+str(twait)
 			print #1,"(General) Iterations: "+str(solvesub_iterations)
 			print #1,"(General) Iterations factor: "+str(solvesub_iterationsfactor)
@@ -29032,7 +29032,6 @@ sub thread_load_ngrams(byval none as any ptr)
 	
 	ngram_mem=nfb
 	solvesub_ngramloc=solvesub_ngramloctemp
-	solver_file_name_ngrams=right(file_name_ngrams,len(file_name_ngrams)-instrrev(file_name_ngrams,"\"))
 	
 	'gz variables
 	'-----------------------------
@@ -29064,7 +29063,7 @@ sub thread_load_ngrams(byval none as any ptr)
 
 	if firststart=1 then 'load n-grams that add spaces to output
 		pos_file=basedir+"\N-grams\Spaces\5-grams_positions"
-		space_file=basedir+"\N-grams\Spaces\5-grams_english+spaces_jarlve_reddit.txt.gz"
+		space_file=basedir+"\N-grams\Spaces\5-grams_english+spaces_jarlve_reddit.txt.zst"
 		if fileexists(pos_file)=-1 andalso fileexists(space_file)=-1 then
 			pi=@g5p(0,0,0,0,0)
 			gzf=gzopen(pos_file,"rb")
@@ -29150,12 +29149,17 @@ sub thread_load_ngrams(byval none as any ptr)
 		
 		redim wl2(wmax,wmax)
 		pi=@wl2(0,0)
-		gzf=gzopen(basedir+"\N-grams\Words\2-word_grams_english_beijinghouse_google_clean_64k.txt.gz","rb")
+		loadngramtimer=timer
+		gzf=gzopen(basedir+"\N-grams\Words\2-word_grams_english_beijinghouse_google_clean_64k.txt.zst","rb")
 		k=0
+		solver_file_name_ngrams="2-wordgram File [4GB mem]"
+		total_items=((wmax+1)^2)-1
 		for i=0 to ((wmax+1)^2)-1
 			if k=0 then
 				bl=0
 				k=buffer
+				curr_items=i
+				#include "ngram_loading_progress.bi"
 				gzread(gzf,fd,buffer)
 			end if
 			k-=1 'byte
@@ -29210,12 +29214,17 @@ sub thread_load_ngrams(byval none as any ptr)
 		
 		redim g7w(25,25,25,25,25,25,25)
 		ps=@g7w(0,0,0,0,0,0,0)
-		gzf=gzopen(basedir+"\N-grams\Words\7gram-to-1word-600M-line-reddit2020-beijinghouse1_clean_test2.txt.gz","rb")
+		loadngramtimer=timer
+		gzf=gzopen(basedir+"\N-grams\Words\7gram-to-1word-600M-line-reddit2020-beijinghouse1_clean_test2.txt.zst","rb")
 		k=0
+		solver_file_name_ngrams="Word Discrimination File [16GB mem]"
+		total_items=(26^7)-1
 		for i=0 to (26^7)-1
 			if k=0 then
 				bl=0
 				k=buffer
+				curr_items=i
+				#include "ngram_loading_progress.bi"
 				gzread(gzf,fs,buffer)
 			end if
 			k-=2 'short
@@ -29231,6 +29240,7 @@ sub thread_load_ngrams(byval none as any ptr)
 	end if
 	'----------------------------------------------------------------------------------
 
+	solver_file_name_ngrams=right(file_name_ngrams,len(file_name_ngrams)-instrrev(file_name_ngrams,"\"))
 
 	ngrams_inmem(ngram_size)=1
 	loadngramtimer=timer
