@@ -3512,7 +3512,8 @@ sub mainloop
 								case 14 'load n-grams
 									s=""
 									dim as string oldfilter=filter
-									filter="GOV and Text files (*.gov/*.txt)"+chr(0)+"*.gov;*.txt*;*.gz;*.zst"+chr(0)+"GOV files (*.gov)"+chr(0)+"*.gov"+chr(0)+"Text files (*.txt)"+chr(0)+"*.txt*"+chr(0)+"Gz files (*.gz)"+chr(0)+"*.gz"
+'									filter="GOV and Text files (*.gov/*.txt)"+chr(0)+"*.gov;*.txt*;*.gz;*.zst"+chr(0)+"GOV files (*.gov)"+chr(0)+"*.gov"+chr(0)+"Text files (*.txt)"+chr(0)+"*.txt*"+chr(0)+"Gz files (*.gz)"+chr(0)+"*.gz"
+									filter="GOV and Text files (*.gov/*.txt)"+chr(0)+"*.gov;*.txt*"+chr(0)+"GOV files (*.gov)"+chr(0)+"*.gov"+chr(0)+"Text files (*.txt)"+chr(0)+"*.txt*"+chr(0)+"Gz files (*.gz)"+chr(0)+"*.gz"
 									s=ui_loadsavedialog(0,"Open n-grams",filter,1,basedir+"\N-grams\")
 									filter=oldfilter
 									if len(s)>0 then
@@ -28769,10 +28770,16 @@ sub thread_load_ngrams(byval none as any ptr)
 				ngram_format="binary"
 				table_file=left(file_name_ngrams,instr(file_name_ngrams,".txt")-1)+"_table.txt"
 					if fileexists(table_file)=0 then
-						table_file=left(file_name_ngrams,instr(file_name_ngrams,".txt")-1)+"_table.txt.gz"
+						table_file=left(file_name_ngrams,instr(file_name_ngrams,".txt")-1)+"_table.txt.zst"
 						if fileexists(table_file)=0 then
-							table_file=left(file_name_ngrams,instr(file_name_ngrams,".txt")-1)+"_table.gz"
-							if fileexists(table_file)=0 then abortload=2
+							table_file=left(file_name_ngrams,instr(file_name_ngrams,".txt")-1)+"_table.zst"
+							if fileexists(table_file)=0 then
+								table_file=left(file_name_ngrams,instr(file_name_ngrams,".txt")-1)+"_table.txt.gz"
+								if fileexists(table_file)=0 then
+									table_file=left(file_name_ngrams,instr(file_name_ngrams,".txt")-1)+"_table.gz"
+										if fileexists(table_file)=0 then abortload=2
+								end if
+							end if
 						end if
 					end if
 			case else:abortload=1
