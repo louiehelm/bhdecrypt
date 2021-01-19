@@ -28763,7 +28763,7 @@ sub thread_load_ngrams(byval none as any ptr)
 		end select
 	else
 		select case ngram_size
-			case 2,3,4,5,6
+			case 2,3,4,5,7,6
 			case 8 ',10
 				fileformat=1
 				ngram_format="binary"
