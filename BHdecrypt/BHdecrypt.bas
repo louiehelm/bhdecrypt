@@ -680,6 +680,8 @@ dim shared as integer ngram_standardalphabet
 dim shared as integer firststart
 dim shared as integer addspaces_ngrams
 dim shared as integer solvesub_addspacesquality
+dim shared as integer solvesub_wordgrams_enabled
+dim shared as integer solvesub_7gwordgrams
 
 'thread mutex
 '------------------------------------------------------------
@@ -28378,184 +28380,193 @@ function info_to_string(array()as long,byval l as integer,byval dx as integer,by
 		'next i
 		's+=" "+rdc(word_score/(words-2),2)
 		'-----------------------------------------------------------
-		
-		'word gram score addon:
-		'----------------------
-		's+=str(g6w(asc("B")-65,asc("E")-65,asc("C")-65,asc("A")-65,asc("U")-65,asc("S")-65))+","
-		's+=str(g6w(asc("K")-65,asc("I")-65,asc("L")-65,asc("L")-65,asc("I")-65,asc("N")-65))
-		
-		s+=lb+"----------------------------------------"+lb
-		dim as ushort wor(l),nwor(l)
-		dim as integer nwlen=0,wngs=7
-		words=0
-		
-		for i=1 to l
-			sol(i)=alpharev(array(i))
-		next i
-		words=0
-		for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
-			sol(i)=sol(i-l)
-		next i
-		for i=1 to l 'convert sol array to words
-			'j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
-			j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
-			if j>0 then
-				if nwlen>0 then
-					'k=0
-					'select case nwlen
-					'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k
-					'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k
-					'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k
-					'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k
-					'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k
-					'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k
-					'end select
-					'if k=0 then
-						s+="(" 'write word string
-						for k=1 to nwlen
-							s+=chr(nwor(k)+65)
-						next k
-						s+=") ":h+=nwlen+1
-						if h>40 then
-							h=0
-							if i<l then s+=lb
-						end if
-						'---------------------------------------------
-						nwlen=0
-						words+=1
-						wor(words)=0
-					'else
-					'	s+="[" 'write word string
-					'	for k=1 to nwlen
-					'		s+=chr(nwor(k)+65)
-					'	next k
-					'	s+="] ":h+=nwlen+1
-					'	if h>40 then
-					'		h=0
-					'		if i<>l then s+=lb
-					'	end if
-					'	'---------------------------------------------
-					'	nwlen=0
-					'end if
+
+		if solvesub_wordgrams_enabled=1 then
+
+			'word gram score addon:
+			'----------------------
+			's+=str(g6w(asc("B")-65,asc("E")-65,asc("C")-65,asc("A")-65,asc("U")-65,asc("S")-65))+","
+			's+=str(g6w(asc("K")-65,asc("I")-65,asc("L")-65,asc("L")-65,asc("I")-65,asc("N")-65))
+			
+			s+=lb+"----------------------------------------"+lb
+			dim as ushort wor(l),nwor(l)
+			dim as integer nwlen=0,wngs=7
+			if solvesub_7gwordgrams=0 then
+				wngs=6
+			end if	
+			words=0
+			
+			for i=1 to l
+				sol(i)=alpharev(array(i))
+			next i
+			words=0
+			for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
+				sol(i)=sol(i-l)
+			next i
+			for i=1 to l 'convert sol array to words
+				if solvesub_7gwordgrams=0 then
+					j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
+				else
+					j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
 				end if
-				if wl(j,0)>wngs then 'if word length >6 then check word vs wordlist entry
-					e=1
-					'if wl(j,0)>=l-(i-1) then
-						for k=0 to wl(j,0)-1
-							if wl(j,k+1)<>sol(i+k)+65 then
-								e=0
-								exit for
+				if j>0 then
+					if nwlen>0 then
+						'k=0
+						'select case nwlen
+						'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k
+						'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k
+						'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k
+						'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k
+						'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k
+						'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k
+						'end select
+						'if k=0 then
+							s+="(" 'write word string
+							for k=1 to nwlen
+								s+=chr(nwor(k)+65)
+							next k
+							s+=") ":h+=nwlen+1
+							if h>40 then
+								h=0
+								if i<l then s+=lb
 							end if
-						next k
-					'end if
-					if e=1 then
-						words+=1
-						wor(words)=j
-						i+=wl(j,0)-1 'skip other letters of the found word
-						'---------------------------------------------
-						for k=1 to wl(wor(words),0) 'write word string
-							s+=chr(wl(wor(words),k))
-						next k
-						s+=" ":h+=wl(wor(words),0)+1
-						if h>40 then
-							h=0
-							if i<l then s+=lb
+							'---------------------------------------------
+							nwlen=0
+							words+=1
+							wor(words)=0
+						'else
+						'	s+="[" 'write word string
+						'	for k=1 to nwlen
+						'		s+=chr(nwor(k)+65)
+						'	next k
+						'	s+="] ":h+=nwlen+1
+						'	if h>40 then
+						'		h=0
+						'		if i<>l then s+=lb
+						'	end if
+						'	'---------------------------------------------
+						'	nwlen=0
+						'end if
+					end if
+					if wl(j,0)>wngs then 'if word length >6 then check word vs wordlist entry
+						e=1
+						'if wl(j,0)>=l-(i-1) then
+							for k=0 to wl(j,0)-1
+								if wl(j,k+1)<>sol(i+k)+65 then
+									e=0
+									exit for
+								end if
+							next k
+						'end if
+						if e=1 then
+							words+=1
+							wor(words)=j
+							i+=wl(j,0)-1 'skip other letters of the found word
+							'---------------------------------------------
+							for k=1 to wl(wor(words),0) 'write word string
+								s+=chr(wl(wor(words),k))
+							next k
+							s+=" ":h+=wl(wor(words),0)+1
+							if h>40 then
+								h=0
+								if i<l then s+=lb
+							end if
+						else
+							'nwlen+=1
+							'nwor(nwlen)=sol(i)
+							s+="*" 'write word string
+							for k=0 to wl(j,0)-1
+								s+=chr(sol(i+k)+65)
+							next k
+							s+="* ":h+=wl(j,0)+1
+							if h>40 then
+								h=0
+								s+=lb
+							end if
+							'---------------------------------------------
+							words+=1
+							wor(words)=0
+							i+=wl(j,0)-1 'skip other letters of the found word
 						end if
 					else
-						'nwlen+=1
-						'nwor(nwlen)=sol(i)
-						s+="*" 'write word string
-						for k=0 to wl(j,0)-1
-							s+=chr(sol(i+k)+65)
-						next k
-						s+="* ":h+=wl(j,0)+1
+						words+=1
+						if wl(j,0)>=l-(i-1) then 
+							wor(words)=0
+							i+=wl(j,0)-1 'skip other letters of the found word
+							'---------------------------------------------
+							s+="(" 'write word string
+							for k=1 to wl(wor(words),0)
+								s+=chr(wl(wor(words),k))
+							next k
+							s+=") ":h+=wl(wor(words),0)+1
+						else 
+							wor(words)=j
+							i+=wl(j,0)-1 'skip other letters of the found word
+							'---------------------------------------------
+							for k=1 to wl(wor(words),0) 'write word string
+								s+=chr(wl(wor(words),k))
+							next k
+							s+=" ":h+=wl(wor(words),0)+1
+						end if
 						if h>40 then
 							h=0
-							s+=lb
+							if i<l then s+=lb
 						end if
-						'---------------------------------------------
-						words+=1
-						wor(words)=0
-						i+=wl(j,0)-1 'skip other letters of the found word
 					end if
 				else
-					words+=1
-					if wl(j,0)>=l-(i-1) then 
-						wor(words)=0
-						i+=wl(j,0)-1 'skip other letters of the found word
-						'---------------------------------------------
-						s+="(" 'write word string
-						for k=1 to wl(wor(words),0)
-							s+=chr(wl(wor(words),k))
-						next k
-						s+=") ":h+=wl(wor(words),0)+1
-					else 
-						wor(words)=j
-						i+=wl(j,0)-1 'skip other letters of the found word
-						'---------------------------------------------
-						for k=1 to wl(wor(words),0) 'write word string
-							s+=chr(wl(wor(words),k))
-						next k
-						s+=" ":h+=wl(wor(words),0)+1
-					end if
+					nwlen+=1
+					nwor(nwlen)=sol(i)
+				end if
+			next i
+			if nwlen>0 then
+				'k=0
+				'select case nwlen
+				'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k
+				'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k
+				'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k
+				'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k
+				'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k
+				'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k
+				'end select
+				'if k=0 then
+					s+="(" 'write word string
+					for k=1 to nwlen
+						s+=chr(nwor(k)+65)
+					next k
+					s+=") ":h+=nwlen+1
 					if h>40 then
 						h=0
-						if i<l then s+=lb
+						'if i<>l then s+=lb
 					end if
-				end if
-			else
-				nwlen+=1
-				nwor(nwlen)=sol(i)
+					'---------------------------------------------
+					nwlen=0
+					words+=1
+					wor(words)=0
+				'else
+				'	s+="[" 'write word string
+				'	for k=1 to nwlen
+				'		s+=chr(nwor(k)+65)
+				'	next k
+				'	s+="] ":h+=nwlen+1
+				'	if h>40 then
+				'		h=0
+				'		'if i<>l then s+=lb
+				'	end if
+				'	'---------------------------------------------
+				'	nwlen=0
+				'end if
 			end if
-		next i
-		if nwlen>0 then
-			'k=0
-			'select case nwlen
-			'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k
-			'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k
-			'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k
-			'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k
-			'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k
-			'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k
-			'end select
-			'if k=0 then
-				s+="(" 'write word string
-				for k=1 to nwlen
-					s+=chr(nwor(k)+65)
-				next k
-				s+=") ":h+=nwlen+1
-				if h>40 then
-					h=0
-					'if i<>l then s+=lb
+			
+			if words>1 then
+				dim as double wscore=0
+				for i=1 to words-1 'score words with word 2-grams
+					wscore+=wl2(wor(i),wor(i+1))
+				next i
+				wscore+=wl(wor(i),wor(1)) 'wrap around
+				if wscore>0 then
+					wscore/=words '-1
+					s+=format(wscore,"0.00")
 				end if
-				'---------------------------------------------
-				nwlen=0
-				words+=1
-				wor(words)=0
-			'else
-			'	s+="[" 'write word string
-			'	for k=1 to nwlen
-			'		s+=chr(nwor(k)+65)
-			'	next k
-			'	s+="] ":h+=nwlen+1
-			'	if h>40 then
-			'		h=0
-			'		'if i<>l then s+=lb
-			'	end if
-			'	'---------------------------------------------
-			'	nwlen=0
-			'end if
-		end if
-		
-		if words>1 then
-			dim as double wscore=0
-			for i=1 to words-1 'score words with word 2-grams
-				wscore+=wl2(wor(i),wor(i+1))
-			next i
-			wscore+=wl(wor(i),wor(1)) 'wrap around
-			if wscore>0 then
-				wscore/=words '-1
-				s+=format(wscore,"0.00")
 			end if
 		end if
 		
@@ -29163,6 +29174,9 @@ sub thread_load_ngrams(byval none as any ptr)
 	erase ngram_values
 	
 
+	solvesub_wordgrams_enabled=1
+	solvesub_7gwordgrams=0
+
    'firststart=0 ' TODO: remove. testing with less mem
    
 	if firststart=1 then 'load n-grams that add spaces to output
@@ -29207,13 +29221,17 @@ sub thread_load_ngrams(byval none as any ptr)
 	
 	'word n-grams 
 	'----------------------------------------------------------------------------------
-	if firststart=1 then
+	if firststart=1 and solvesub_wordgrams_enabled=1 then
 		
 		dim as integer wmax=65535
 		redim wl(wmax,50)
 		redim wlptr(2^32)
-		
-		open basedir+"\N-grams\Words\1-word_grams_english_beijinghouse_google_clean_64k.txt" for binary as #1
+
+		if solvesub_7gwordgrams=0 then
+			open basedir+"\N-grams\Words\1-word_grams_english_beijinghouse_google_64k.txt" for binary as #1
+		else
+			open basedir+"\N-grams\Words\1-word_grams_english_beijinghouse_google_clean_64k.txt" for binary as #1
+		end if
 		i=0
 		do
 			line input #1,s
@@ -29254,7 +29272,11 @@ sub thread_load_ngrams(byval none as any ptr)
 		redim wl2(wmax,wmax)
 		pi=@wl2(0,0)
 		loadngramtimer=timer
-		gzf=gzopen(basedir+"\N-grams\Words\2-word_grams_english_beijinghouse_google_clean_64k.txt.zst","rb")
+		if solvesub_7gwordgrams=0 then
+			gzf=gzopen(basedir+"\N-grams\Words\2-word_grams_english_beijinghouse_google_64k.txt.zst","rb")
+		else
+			gzf=gzopen(basedir+"\N-grams\Words\2-word_grams_english_beijinghouse_google_clean_64k.txt.zst","rb")
+		end if
 		k=0
 		solver_file_name_ngrams="2-wordgram File [4GB mem]"
 		total_items=((wmax+1)^2)-1
@@ -29297,47 +29319,53 @@ sub thread_load_ngrams(byval none as any ptr)
 		'put #1,,g6w() 'doesn't work for files > 3GB (FreeBASIC bug)
 		'close #1
 		
-		'redim g6w(25,25,25,25,25,25)
-		'ps=@g6w(0,0,0,0,0,0)
-		''gzf=gzopen(basedir+"\N-grams\Words\6gram-to-1word-5M-line-reddit2020-test2.txt.gz","rb")
-		'gzf=gzopen(basedir+"\N-grams\Words\6gram-to-1word-600M-line-reddit2020-test6.txt.gz","rb")
-		'k=0
-		'for i=0 to (26^6)-1
-		'	if k=0 then
-		'		bl=0
-		'		k=buffer
-		'		gzread(gzf,fs,buffer)
-		'	end if
-		'	k-=2 'short
-		'	j=fs[bl]
-		'	bl+=1
-		'	ps[i]=j
-		'	'if j<65536 then ps[i]=j else beep
-		'next i
-		'gzclose(gzf)
-		
-		redim g7w(25,25,25,25,25,25,25)
-		ps=@g7w(0,0,0,0,0,0,0)
-		loadngramtimer=timer
-		gzf=gzopen(basedir+"\N-grams\Words\7gram-to-1word-600M-line-reddit2020-beijinghouse1_clean_test2.txt.zst","rb")
-		k=0
-		solver_file_name_ngrams="Word Discrimination File [16GB mem]"
-		total_items=(26^7)-1
-		for i=0 to (26^7)-1
-			if k=0 then
-				bl=0
-				k=buffer
-				curr_items=i
-				#include "ngram_loading_progress.bi"
-				gzread(gzf,fs,buffer)
-			end if
-			k-=2 'short
-			j=fs[bl]
-			bl+=1
-			ps[i]=j
-			'if j<65536 then ps[i]=j else beep
-		next i
-		gzclose(gzf)
+		if solvesub_7gwordgrams=0 then
+			redim g6w(25,25,25,25,25,25)
+			ps=@g6w(0,0,0,0,0,0)
+'			gzf=gzopen(basedir+"\N-grams\Words\6gram-to-1word-5M-line-reddit2020-beijinghouse1_clean_test1.txt.zst","rb")
+			gzf=gzopen(basedir+"\N-grams\Words\6gram-to-1word-5M-line-reddit2020-beijinghouse1test1.txt.zst","rb")
+			k=0
+			solver_file_name_ngrams="Word Discrimination File [600MB mem]"
+			total_items=(26^6)-1
+			for i=0 to (26^6)-1
+				if k=0 then
+					bl=0
+					k=buffer
+					curr_items=i
+					#include "ngram_loading_progress.bi"
+					gzread(gzf,fs,buffer)
+				end if
+				k-=2 'short
+				j=fs[bl]
+				bl+=1
+				ps[i]=j
+				'if j<65536 then ps[i]=j else beep
+			next i
+			gzclose(gzf)
+		else
+			redim g7w(25,25,25,25,25,25,25)
+			ps=@g7w(0,0,0,0,0,0,0)
+			loadngramtimer=timer
+			gzf=gzopen(basedir+"\N-grams\Words\7gram-to-1word-600M-line-reddit2020-beijinghouse1_clean_test2.txt.zst","rb")
+			k=0
+			solver_file_name_ngrams="Word Discrimination File [16GB mem]"
+			total_items=(26^7)-1
+			for i=0 to (26^7)-1
+				if k=0 then
+					bl=0
+					k=buffer
+					curr_items=i
+					#include "ngram_loading_progress.bi"
+					gzread(gzf,fs,buffer)
+				end if
+				k-=2 'short
+				j=fs[bl]
+				bl+=1
+				ps[i]=j
+				'if j<65536 then ps[i]=j else beep
+			next i
+			gzclose(gzf)
+		end if
 		
 		firststart=0
 		
@@ -32357,96 +32385,103 @@ sub bhdecrypt_234567810g(byval tn_ptr as any ptr)
 								
 								#include "solver_ngram_main.bi"
 								#include "solver_fastent.bi"
-								
-								'word gram score addon:
-								'----------------------
-								'idea: somehow allow a exception for words that end with ING,LY,etc
-								'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
-								
-								dim as integer words=0,nwlen=0,wordlen=0,wngs=7
-								for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
-									sol(i)=sol(i-l)
-								next i
-								for i=1 to l 'convert sol array to words
-									'j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
-									j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
-									if j>0 then
-										'select case nwlen
-										'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'end select
-										if nwlen>0 then
-											words+=1
-											wor(words)=0
-											'wordlen+=nwlen
-											nwlen=0
+
+								if solvesub_wordgrams_enabled=1 then
+									'word gram score addon:
+									'----------------------
+									'idea: somehow allow a exception for words that end with ING,LY,etc
+									'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
+									
+									dim as integer words=0,nwlen=0,wordlen=0,wngs=7
+									if solvesub_7gwordgrams=0 then
+										wngs=6
+									end if		
+									for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
+										sol(i)=sol(i-l)
+									next i
+									for i=1 to l 'convert sol array to words
+										if solvesub_7gwordgrams=0 then
+											j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
+										else
+											j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
 										end if
-										if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
-											e=1
-											'if wl(j,0)>=l-(i-1) then
-												for k=0 to wl(j,0)-1
-													if wl(j,k+1)<>sol(i+k)+65 then
-														e=0
-														exit for
-													end if
-												next k
-											'end if
-											if e=1 then
+										if j>0 then
+											'select case nwlen
+											'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'end select
+											if nwlen>0 then
 												words+=1
-												wor(words)=j
-												'wordlen+=wl(j,0)
-												i+=wl(j,0)-1 'skip other letters of the found word
+												wor(words)=0
+												'wordlen+=nwlen
+												nwlen=0
+											end if
+											if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
+												e=1
+												'if wl(j,0)>=l-(i-1) then
+													for k=0 to wl(j,0)-1
+														if wl(j,k+1)<>sol(i+k)+65 then
+															e=0
+															exit for
+														end if
+													next k
+												'end if
+												if e=1 then
+													words+=1
+													wor(words)=j
+													'wordlen+=wl(j,0)
+													i+=wl(j,0)-1 'skip other letters of the found word
+												else
+													'nwlen+=1
+													'nwor(nwlen)=sol(i)
+													words+=1
+													wor(words)=j
+													'wordlen+=wl(j,0)
+													i+=wl(j,0)-1 'skip other letters of the found word
+												end if
 											else
-												'nwlen+=1
-												'nwor(nwlen)=sol(i)
 												words+=1
-												wor(words)=j
+												if wl(j,0)>=l-(i-1) then wor(words)=0 else wor(words)=j
 												'wordlen+=wl(j,0)
 												i+=wl(j,0)-1 'skip other letters of the found word
 											end if
 										else
-											words+=1
-											if wl(j,0)>=l-(i-1) then wor(words)=0 else wor(words)=j
-											'wordlen+=wl(j,0)
-											i+=wl(j,0)-1 'skip other letters of the found word
+											nwlen+=1
+											nwor(nwlen)=sol(i)
 										end if
-									else
-										nwlen+=1
-										nwor(nwlen)=sol(i)
-									end if
-								next i
-								'select case nwlen
-								'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'end select
-								if nwlen>0 then
-									words+=1
-									wor(words)=0
-									'wordlen+=nwlen
-									nwlen=0
-								end if
-								if words>1 then
-									dim as double wscore=0
-									for i=1 to words-1 'score words with word 2-grams
-										wscore+=wl2(wor(i),wor(i+1))
 									next i
-									wscore+=wl2(wor(i),wor(1)) 'wrap around
-									if wscore>0 then
-										wscore/=words '-1
-										'wscore/=1+(l/words)/solvesub_seqweight
-										new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
-										'new_score+=wscore*solvesub_matchweight 'additive
+									'select case nwlen
+									'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'end select
+									if nwlen>0 then
+										words+=1
+										wor(words)=0
+										'wordlen+=nwlen
+										nwlen=0
 									end if
-								end if
-								
+									if words>1 then
+										dim as double wscore=0
+										for i=1 to words-1 'score words with word 2-grams
+											wscore+=wl2(wor(i),wor(i+1))
+										next i
+										wscore+=wl2(wor(i),wor(1)) 'wrap around
+										if wscore>0 then
+											wscore/=words '-1
+											'wscore/=1+(l/words)/solvesub_seqweight
+											new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
+											'new_score+=wscore*solvesub_matchweight 'additive
+										end if
+									end if
+								end if 	
 								'---------------------------------------------------------------------
 								
 								if new_score>old_score then
@@ -33432,93 +33467,100 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 
 
 
-
-								'word gram score addon:
-								'----------------------
-								'idea: somehow allow a exception for words that end with ING,LY,etc
-								'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
-								
-								dim as integer words=0,nwlen=0,wordlen=0,wngs=7
-								for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
-									sol(i)=sol(i-l)
-								next i
-								for i=1 to l 'convert sol array to words
-									'j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
-									j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
-									if j>0 then
-										'select case nwlen
-										'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'end select
-										if nwlen>0 then
-											words+=1
-											wor(words)=0
-											'wordlen+=nwlen
-											nwlen=0
+								if solvesub_wordgrams_enabled=1 then
+									'word gram score addon:
+									'----------------------
+									'idea: somehow allow a exception for words that end with ING,LY,etc
+									'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
+									
+									dim as integer words=0,nwlen=0,wordlen=0,wngs=7
+									if solvesub_7gwordgrams=0 then
+										wngs=6
+									end if		
+									for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
+										sol(i)=sol(i-l)
+									next i
+									for i=1 to l 'convert sol array to words
+										if solvesub_7gwordgrams=0 then
+											j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
+										else
+											j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
 										end if
-										if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
-											e=1
-											'if wl(j,0)>=l-(i-1) then
-												for k=0 to wl(j,0)-1
-													if wl(j,k+1)<>sol(i+k)+65 then
-														e=0
-														exit for
-													end if
-												next k
-											'end if
-											if e=1 then
+										if j>0 then
+											'select case nwlen
+											'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'end select
+											if nwlen>0 then
 												words+=1
-												wor(words)=j
-												'wordlen+=wl(j,0)
-												i+=wl(j,0)-1 'skip other letters of the found word
+												wor(words)=0
+												'wordlen+=nwlen
+												nwlen=0
+											end if
+											if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
+												e=1
+												'if wl(j,0)>=l-(i-1) then
+													for k=0 to wl(j,0)-1
+														if wl(j,k+1)<>sol(i+k)+65 then
+															e=0
+															exit for
+														end if
+													next k
+												'end if
+												if e=1 then
+													words+=1
+													wor(words)=j
+													'wordlen+=wl(j,0)
+													i+=wl(j,0)-1 'skip other letters of the found word
+												else
+													'nwlen+=1
+													'nwor(nwlen)=sol(i)
+													words+=1
+													wor(words)=j
+													'wordlen+=wl(j,0)
+													i+=wl(j,0)-1 'skip other letters of the found word
+												end if
 											else
-												'nwlen+=1
-												'nwor(nwlen)=sol(i)
 												words+=1
-												wor(words)=j
+												if wl(j,0)>=l-(i-1) then wor(words)=0 else wor(words)=j
 												'wordlen+=wl(j,0)
 												i+=wl(j,0)-1 'skip other letters of the found word
 											end if
 										else
-											words+=1
-											if wl(j,0)>=l-(i-1) then wor(words)=0 else wor(words)=j
-											'wordlen+=wl(j,0)
-											i+=wl(j,0)-1 'skip other letters of the found word
+											nwlen+=1
+											nwor(nwlen)=sol(i)
 										end if
-									else
-										nwlen+=1
-										nwor(nwlen)=sol(i)
-									end if
-								next i
-								'select case nwlen
-								'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'end select
-								if nwlen>0 then
-									words+=1
-									wor(words)=0
-									'wordlen+=nwlen
-									nwlen=0
-								end if
-								if words>1 then
-									wscore = 0
-									for i=1 to words-1 'score words with word 2-grams
-										wscore+=wl2(wor(i),wor(i+1))
 									next i
-									wscore+=wl2(wor(i),wor(1)) 'wrap around
-									if wscore>0 then
-										wscore/=words '-1
-										'wscore/=1+(l/words)/solvesub_seqweight
-				''' do below						new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
-										'new_score+=wscore*solvesub_matchweight 'additive
+									'select case nwlen
+									'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'end select
+									if nwlen>0 then
+										words+=1
+										wor(words)=0
+										'wordlen+=nwlen
+										nwlen=0
+									end if
+									if words>1 then
+										wscore = 0
+										for i=1 to words-1 'score words with word 2-grams
+											wscore+=wl2(wor(i),wor(i+1))
+										next i
+										wscore+=wl2(wor(i),wor(1)) 'wrap around
+										if wscore>0 then
+											wscore/=words '-1
+											'wscore/=1+(l/words)/solvesub_seqweight
+					''' do below						new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
+											'new_score+=wscore*solvesub_matchweight 'additive
+										end if
 									end if
 								end if
 
@@ -34999,93 +35041,100 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 								
 								
 
-
-								'word gram score addon:
-								'----------------------
-								'idea: somehow allow a exception for words that end with ING,LY,etc
-								'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
-								
-								dim as integer words=0,nwlen=0,wordlen=0,wngs=7
-								for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
-									sol(i)=sol(i-l)
-								next i
-								for i=1 to l 'convert sol array to words
-									'j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
-									j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
-									if j>0 then
-										'select case nwlen
-										'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-										'end select
-										if nwlen>0 then
-											words+=1
-											wor(words)=0
-											'wordlen+=nwlen
-											nwlen=0
+								if solvesub_wordgrams_enabled=1 then
+									'word gram score addon:
+									'----------------------
+									'idea: somehow allow a exception for words that end with ING,LY,etc
+									'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
+									
+									dim as integer words=0,nwlen=0,wordlen=0,wngs=7
+									if solvesub_7gwordgrams=0 then
+										wngs=6
+									end if		
+									for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
+										sol(i)=sol(i-l)
+									next i
+									for i=1 to l 'convert sol array to words
+										if solvesub_7gwordgrams=0 then
+											j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
+										else
+											j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
 										end if
-										if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
-											e=1
-											'if wl(j,0)>=l-(i-1) then
-												for k=0 to wl(j,0)-1
-													if wl(j,k+1)<>sol(i+k)+65 then
-														e=0
-														exit for
-													end if
-												next k
-											'end if
-											if e=1 then
+										if j>0 then
+											'select case nwlen
+											'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
+											'end select
+											if nwlen>0 then
 												words+=1
-												wor(words)=j
-												'wordlen+=wl(j,0)
-												i+=wl(j,0)-1 'skip other letters of the found word
+												wor(words)=0
+												'wordlen+=nwlen
+												nwlen=0
+											end if
+											if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
+												e=1
+												'if wl(j,0)>=l-(i-1) then
+													for k=0 to wl(j,0)-1
+														if wl(j,k+1)<>sol(i+k)+65 then
+															e=0
+															exit for
+														end if
+													next k
+												'end if
+												if e=1 then
+													words+=1
+													wor(words)=j
+													'wordlen+=wl(j,0)
+													i+=wl(j,0)-1 'skip other letters of the found word
+												else
+													'nwlen+=1
+													'nwor(nwlen)=sol(i)
+													words+=1
+													wor(words)=j
+													'wordlen+=wl(j,0)
+													i+=wl(j,0)-1 'skip other letters of the found word
+												end if
 											else
-												'nwlen+=1
-												'nwor(nwlen)=sol(i)
 												words+=1
-												wor(words)=j
+												if wl(j,0)>=l-(i-1) then wor(words)=0 else wor(words)=j
 												'wordlen+=wl(j,0)
 												i+=wl(j,0)-1 'skip other letters of the found word
 											end if
 										else
-											words+=1
-											if wl(j,0)>=l-(i-1) then wor(words)=0 else wor(words)=j
-											'wordlen+=wl(j,0)
-											i+=wl(j,0)-1 'skip other letters of the found word
+											nwlen+=1
+											nwor(nwlen)=sol(i)
 										end if
-									else
-										nwlen+=1
-										nwor(nwlen)=sol(i)
-									end if
-								next i
-								'select case nwlen
-								'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-								'end select
-								if nwlen>0 then
-									words+=1
-									wor(words)=0
-									'wordlen+=nwlen
-									nwlen=0
-								end if
-								if words>1 then
-									wscore = 0
-									for i=1 to words-1 'score words with word 2-grams
-										wscore+=wl2(wor(i),wor(i+1))
 									next i
-									wscore+=wl2(wor(i),wor(1)) 'wrap around
-									if wscore>0 then
-										wscore/=words '-1
-										'wscore/=1+(l/words)/solvesub_seqweight
-				''' do below						new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
-										'new_score+=wscore*solvesub_matchweight 'additive
+									'select case nwlen
+									'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
+									'end select
+									if nwlen>0 then
+										words+=1
+										wor(words)=0
+										'wordlen+=nwlen
+										nwlen=0
+									end if
+									if words>1 then
+										wscore = 0
+										for i=1 to words-1 'score words with word 2-grams
+											wscore+=wl2(wor(i),wor(i+1))
+										next i
+										wscore+=wl2(wor(i),wor(1)) 'wrap around
+										if wscore>0 then
+											wscore/=words '-1
+											'wscore/=1+(l/words)/solvesub_seqweight
+					''' do below						new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
+											'new_score+=wscore*solvesub_matchweight 'additive
+										end if
 									end if
 								end if
 								
