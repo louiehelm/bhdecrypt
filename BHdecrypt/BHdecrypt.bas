@@ -733,6 +733,45 @@ static shared as ubyte cachebh85()
 static shared as ubyte cachebh86()
 static shared as ubyte cachebh87()
 
+dim shared as Integer ninegramformat
+dim shared as Integer ninegram_offset
+dim shared as Integer ninegram_half(26)
+dim shared as Integer ninegram_quartile
+dim shared as Integer tengramformat
+dim shared as Integer tengram_quartile
+dim shared as Integer z_offset
+
+static shared as UShort g51() '9-gram arrays
+static shared as UShort g52()
+static shared as uinteger g53()   ' changed to uint for 10-gram sub array use Jan 2020
+static shared as uinteger g54()   ' changed to uint for 10-gram sub array use Jan 2020
+
+static shared as UByte gxa9()
+static shared as UByte gxb9()
+static shared as UByte gxc9()
+static shared as UByte gxd9()
+static shared as UByte gxe9()
+static shared as UByte gxf9()
+static shared as UByte gxg9()
+static shared as UByte gxh9()
+static shared as UByte gxi9()
+static shared as UByte gxj9()
+static shared as UByte gxk9()
+static shared as UByte gxl9()
+static shared as UByte gxm9()
+static shared as UByte gxn9()
+static shared as UByte gxo9()
+static shared as UByte gxp9()
+static shared as UByte gxq9()
+static shared as UByte gxr9()
+static shared as UByte gxs9()
+static shared as UByte gxt9()
+static shared as UByte gxu9()
+static shared as UByte gxv9()
+static shared as UByte gxw9()
+static shared as UByte gxx9()
+static shared as UByte gxy9()
+static shared as UByte gxz9()
 
 'beijinghouse gov n-gram variables:
 '------------------------------------------------------------
@@ -28764,7 +28803,7 @@ sub thread_load_ngrams(byval none as any ptr)
 		end select
 	else
 		select case ngram_size
-			case 2,3,4,5,7,6
+			case 2,3,4,5,7,6,9
 			case 8 ',10
 				fileformat=1
 				ngram_format="binary"
@@ -28946,6 +28985,37 @@ sub thread_load_ngrams(byval none as any ptr)
 		redim cachebh86(0,0,0,0)
 		redim cachebh87(0,0,0,0)
 		'------------------------------------------------------------------------
+		ReDim g51(0,0,0,0,0) 'beijinghouse 9-grams
+		ReDim g52(0,0,0,0,0)
+		redim g53(0,0,0,0,0)
+		redim g54(0,0,0,0,0)
+		redim gxa9(0,0)
+		redim gxb9(0,0)
+		redim gxc9(0,0)
+		redim gxd9(0,0)
+		redim gxe9(0,0)
+		redim gxf9(0,0)
+		redim gxg9(0,0)
+		redim gxh9(0,0)
+		redim gxi9(0,0)
+		redim gxj9(0,0)
+		redim gxk9(0,0)
+		redim gxl9(0,0)
+		redim gxm9(0,0)
+		redim gxn9(0,0)
+		redim gxo9(0,0)
+		redim gxp9(0,0)
+		redim gxq9(0,0)
+		redim gxr9(0,0)
+		redim gxs9(0,0)
+		redim gxt9(0,0)
+		redim gxu9(0,0)
+		redim gxv9(0,0)
+		redim gxw9(0,0)
+		redim gxx9(0,0)
+		redim gxy9(0,0)
+		redim gxz9(0,0)
+		'------------------------------------------------------------------------
 		if (gov_offset_and_seed<>null) then deallocate(gov_offset_and_seed) ' beijinghouse gov
 		if (gov_array<>null) then deallocate(gov_array)
 
@@ -29068,6 +29138,8 @@ sub thread_load_ngrams(byval none as any ptr)
 	erase ngram_values
 	
 
+   'firststart=0 ' TODO: remove. testing with less mem
+   
 	if firststart=1 then 'load n-grams that add spaces to output
 		pos_file=basedir+"\N-grams\Spaces\5-grams_positions"
 		space_file=basedir+"\N-grams\Spaces\5-grams_english+spaces_jarlve_reddit.txt.zst"
@@ -29638,7 +29710,489 @@ sub thread_load_ngrams(byval none as any ptr)
 				else
 					trimmed_table_ratio=1
 				end if
+
+
+			case 9 'beijinghouse crazy 9-gram systems
+
+
+				ngram_mem=0
+				redim g3keyguard(nm1,nm1,nm1)
+					
+				Finish79:								 ' label for 79 to jump here after 7gram is loaded
+				dim fileData3 As UByte Ptr			 ' temp storage for encoder table read-in
+				Dim tablecount(4,256) As UInteger ' temp storage for encoder scoring table sizes
+				Dim bigtablecount(26) As UInteger
+				Dim bigtablejumps(26) As UInteger
+				Dim jump_location As Integer
+				Dim max_bigcount As UInteger
+				Dim buf_offset As Integer
+				Dim spin As UInteger
+				ReDim g51(nm1,nm1,nm1,nm1,nm1)
+				ReDim g52(nm1,nm1,nm1,nm1,nm1)
+				ReDim g53(nm1,nm1,nm1,nm1,nm1)
+				ReDim g54(nm1,nm1,nm1,nm1,nm1)
+				ngram_mem += 2*4*26^5  ' only count 2x 32bit arrays because 2 will be redimed to 0 depending on format
+				Dim as uinteger top_pivot, pivot, d1,d2,d3,d4,d5,d6,j2,max_count, buf_len_s, acu_len_s, hop_len_s
+				pivot = 65
+				highgram=1
+				top_pivot = pivot + 26
+				Dim encoder_count As uinteger
+
+			 	Dim fileData As UByte Ptr
+				dim as uinteger bufferLen = 33554432    ' use 32MB buffer - 8gram headers > 1MB; 9-grams > 2.5MB; 10-grams > 5MB
+				dim as uinteger bytesRead = bufferLen  	'init value, reset when reading but needed for loop entry
+				dim as uinteger totalBytes = bufferLen 	'init value, reset when reading but needed for loop entry
+				buf_len_s = bufferLen	'init value, reset when reading but needed for loop entry
+				fileData = Allocate(bufferLen)
 				
+				'For spin = 0 To total_spins
+				While pivot < top_pivot
+					
+					If ninegramformat <> 9 Then
+						buf_len_s = 0
+						gzread( gzf, fileData, 4 )
+					
+						d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+						acu_len_s += 4
+					Else
+						d1 = (fileData3[0+buf_len_s] Shl 24) + (fileData3[1+buf_len_s] Shl 16) + (fileData3[2+buf_len_s] Shl 8) + fileData3[3+buf_len_s]
+						acu_len_s += 4
+						buf_len_s += 4
+					EndIf
+					
+					If d1 = 0 Then ' if using double-sized indexes
+						If ninegramformat <> 9 Then
+							ninegramformat = 3
+							gzread( gzf, fileData, 4 )
+							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							acu_len_s += 4
+						endif
+					ElseIf fileData[1+buf_len_s] = 6 Then ' using folded indexes
+						If ninegramformat <> 9 Then
+							ninegramformat = 8
+							ninegram_quartile = fileData[2+buf_len_s]
+							highgram = ninegram_quartile
+							ninegram_offset = fileData[3+buf_len_s]
+							gzread( gzf, fileData, 4 )
+							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							acu_len_s += 4
+'								ninegram_offset = d1 shr 1 ' reuse this variable since unused in this format and need to know where half point is
+							ninegram_half(pivot-65) = d1 shr 1
+						endif
+					ElseIf fileData[1+buf_len_s] = 1 Then ' using folded indexes
+						If ninegramformat <> 9 Then
+							ninegramformat = 4
+							ninegram_quartile = fileData[2+buf_len_s]
+							highgram = ninegram_quartile
+							ninegram_offset = fileData[3+buf_len_s]
+							gzread( gzf, fileData, 4 )
+							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							acu_len_s += 4	
+							gzread( gzf, fileData, 4 )
+							d3 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							acu_len_s += 4
+						endif
+					ElseIf fileData[1+buf_len_s] = 3 Then ' using folded indexes with bitshifted keys in 2 low order score bits
+						If ninegramformat <> 9 Then
+							ninegramformat = 6
+							ninegram_quartile = fileData[2+buf_len_s]
+							highgram = ninegram_quartile
+							ninegram_offset = fileData[3+buf_len_s]
+							gzread( gzf, fileData, 4 )
+							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							acu_len_s += 4	
+							gzread( gzf, fileData, 4 )
+							d3 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							acu_len_s += 4
+						endif
+					ElseIf fileData[1+buf_len_s] = 2 Then ' using triple folded indexes
+						If ninegramformat <> 9 Then
+							ninegramformat = 5
+							ninegram_quartile = fileData[2+buf_len_s]
+							highgram = ninegram_quartile
+							ninegram_offset = fileData[3+buf_len_s]
+							gzread( gzf, fileData, 4 )
+							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							acu_len_s += 4	
+							gzread( gzf, fileData, 4 )
+							d3 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							acu_len_s += 4
+							gzread( gzf, fileData, 4 )
+							d5 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							acu_len_s += 4
+						endif
+'					ElseIf d1 = 1 Then ' using mid-trigrams
+'						If ninegramformat <> 9 Then
+'								
+'							ninegramformat = 9
+'							gzread( gzf, fileData, 4 )
+'							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+'							acu_len_s += 4
+'							
+'							ReDim gx9_trigrams(j,j,j)
+'							ReDim gx9_first(d1,d1)
+'							ReDim gx9_last(d1,d1)
+'							top_pivot = d1 + 65 ' TODO REMOVE -400 weird stuff -1 for 0 indexed outer loop
+'							
+'							gzread( gzf, fileData, d1*3 + 26*4 + 4 ) ' read in valid trigrams + total size table + first table dimension
+'							
+'							encoder_count = 1
+'							While encoder_count <= d1		' save valid trigram indexes
+'								gx9_trigrams(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = encoder_count
+'								If fileData[1+buf_len_s] > fileData[1+buf_len_s-3] Then ' puts 1 in 
+'									bigtablejumps(jump_location) = encoder_count
+'									jump_location += 1
+'								EndIf
+'								acu_len_s += 3
+'								buf_len_s += 3
+'								encoder_count += 1
+'							wend
+'							
+'							max_bigcount = 0	
+'							For i = 1 To 26 Step 1
+'								bigtablecount(i) = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+'								If bigtablecount(i) > max_bigcount Then
+'				               max_bigcount = bigtablecount(i)	
+'								EndIf
+'								acu_len_s += 4
+'								buf_len_s += 4
+'							Next i
+'							
+'							jump_location = 1
+'							' use fileData3 for all reading; pull in full mid-letter chucks for midtrigrams
+'							' cause otherwise painfully slow
+'							fileData3 = Allocate(max_bigcount)
+'							
+'							' read in 1st dimension of encoder table to kick off just like other formats
+'							
+'							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+'							acu_len_s += 4
+'							
+'						endif
+						
+					endif
+					
+					If ninegramformat = 9 Then
+						If (pivot - 64) = bigtablejumps(jump_location) Then
+							buf_len_s = 0
+							gzread ( gzf, fileData3, bigtablecount(jump_location) )
+							jump_location += 1
+						EndIf
+					'	gzread( gzf, fileData, d1*3 )							
+					Else
+						gzread( gzf, fileData, d1*4 )								
+					EndIf
+					
+					encoder_count = 1
+					While encoder_count <= d1
+						If ninegramformat = 0 Then
+							g51(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]),  alpharev(fileData[3+buf_len_s]), alpharev(pivot)) = encoder_count
+							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+						ElseIf ninegramformat = 3 Orelse ninegramformat = 4 orelse ninegramformat = 5 orelse ninegramformat = 6 orelse ninegramformat = 8 then
+							g53(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]),  alpharev(fileData[3+buf_len_s]), alpharev(pivot)) = encoder_count
+							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+'						Else
+'							gx9_first(gx9_trigrams(alpharev(fileData3[0+buf_len_s]), alpharev(fileData3[1+buf_len_s]), alpharev(fileData3[2+buf_len_s])),pivot-64) = encoder_count
+'							acu_len_s -= 1  ' correct jump forward below
+'							buf_len_s -= 1
+						EndIf
+						acu_len_s += 4
+						buf_len_s += 4
+						encoder_count += 1
+					wend
+
+					' load backup grams for folded format
+					If ninegramformat = 4 orelse ninegramformat=5 orelse ninegramformat=6 then		
+						buf_len_s = 0
+
+						gzread( gzf, fileData, d3*4 )
+						
+						encoder_count = 1048576 + 1 ' put backup grams arbitrarily higher in encoding count
+						While encoder_count <= d3 + 1048576 ' 5000000 1048576 = &H100000
+							g53(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]),  alpharev(fileData[3+buf_len_s]), alpharev(pivot)) = encoder_count
+							acu_len_s += 4
+							buf_len_s += 4
+							encoder_count += 1
+							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+						Wend
+					endif
+
+					' load backup grams for folded format
+					If ninegramformat = 5 Then		
+						buf_len_s = 0
+
+						gzread( gzf, fileData, d5*4 )
+						
+						encoder_count = 16777216 + 1 '10000001 ' put backup grams arbitrarily higher in encoding count
+						While encoder_count <= d5 + 16777216 '10000000
+							g53(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]),  alpharev(fileData[3+buf_len_s]), alpharev(pivot)) = encoder_count
+							acu_len_s += 4
+							buf_len_s += 4
+							encoder_count += 1
+							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+						Wend
+					endif
+					
+					If ninegramformat <> 9 Then		
+						buf_len_s = 0
+						gzread( gzf, fileData, 4 )
+					
+						d2 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+						acu_len_s += 4
+
+						If ninegramformat = 4 orelse ninegramformat = 5 orelse ninegramformat=6 then
+							buf_len_s = 0
+							gzread( gzf, fileData, 4 )
+						
+							d4 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							acu_len_s += 4
+						endif
+
+						If ninegramformat = 5 Then
+							buf_len_s = 0
+							gzread( gzf, fileData, 4 )
+						
+							d6 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							acu_len_s += 4
+						endif
+						
+					Else
+						d2 = (fileData3[0+buf_len_s] Shl 24) + (fileData3[1+buf_len_s] Shl 16) + (fileData3[2+buf_len_s] Shl 8) + fileData3[3+buf_len_s]
+						acu_len_s += 4
+					EndIf
+					
+					
+					If ninegramformat <> 9 Then
+					'	gzread( gzf, fileData, d2*3 + 255*4 )							
+					'Else
+						If ninegramformat = 4 Then
+							gzread( gzf, fileData, d2*4 + d4*4 + 255*4 + 255*4*3 )	
+						elseif ninegramformat = 5 then
+							gzread( gzf, fileData, d2*4 + d4*4 + d6*4 + 255*4 )
+						elseif ninegramformat=6 then
+							gzread( gzf, fileData, d2*4 + d4*4 + 255*4 )
+						elseif ninegramformat=8 then
+							gzread( gzf, fileData, d2*4 + 255*4*2 )
+						else
+							gzread( gzf, fileData, d2*4 + 255*4 + 255*4*ninegramformat )	
+					   endif							
+					EndIf		
+					
+					encoder_count = 1
+					While encoder_count <= d2
+						If ninegramformat = 0 Then
+							g52(alpharev(pivot), alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]), alpharev(fileData[3+buf_len_s])) = encoder_count
+							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+						ElseIf ninegramformat = 3 Orelse ninegramformat = 4 orelse ninegramformat = 5 orelse ninegramformat = 6 orelse ninegramformat = 8 then
+							g54(alpharev(pivot), alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]), alpharev(fileData[3+buf_len_s])) = encoder_count
+							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+'						Else
+'							gx9_last(pivot-64,gx9_trigrams(alpharev(fileData3[0+buf_len_s]), alpharev(fileData3[1+buf_len_s]), alpharev(fileData3[2+buf_len_s]))) = encoder_count
+'							acu_len_s -= 1  ' correct jump forward below
+'							buf_len_s -= 1
+						EndIf
+						acu_len_s += 4
+						buf_len_s += 4
+						encoder_count += 1
+					wend
+
+					' load backup grams for folded format
+					If ninegramformat = 4 orelse ninegramformat = 5 orelse ninegramformat = 6 Then
+								
+						encoder_count = 1048576 + 1 ' put backup grams arbitrarily higher in encoding count
+						While encoder_count <= d4 + 1048576 '5000000
+							g54(alpharev(pivot), alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]), alpharev(fileData[3+buf_len_s])) = encoder_count
+							acu_len_s += 4
+							buf_len_s += 4
+							encoder_count += 1
+							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+						Wend
+					endif
+
+					' load double backup grams for folded format
+					If ninegramformat = 5 Then
+								
+						encoder_count = 16777216 + 1 ' put backup grams arbitrarily higher in encoding count
+						While encoder_count <= d6 + 16777216
+							g54(alpharev(pivot), alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]), alpharev(fileData[3+buf_len_s])) = encoder_count
+							acu_len_s += 4
+							buf_len_s += 4
+							encoder_count += 1
+							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+						Wend
+					endif
+					
+					' add in actual scores
+					If ninegramformat = 9 orelse ninegramformat = 5 orelse ninegramformat = 6 then	
+						j2 = 0
+					elseif ninegramformat = 8 then
+						j2 = 1
+					Else
+						j2 = 3
+					endif
+					
+					max_count = 0	
+					For j = 0 To j2
+						For i = 255 To 1 Step -1
+							If ninegramformat = 9 Then
+								tablecount(j,i) = (fileData3[0+buf_len_s] Shl 24) + (fileData3[1+buf_len_s] Shl 16) + (fileData3[2+buf_len_s] Shl 8) + fileData3[3+buf_len_s]
+							Else
+								tablecount(j,i) = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+							EndIf
+							If tablecount(j,i) > max_count Then
+			               max_count = tablecount(j,i)	
+							EndIf
+							acu_len_s += 4
+							buf_len_s += 4
+						Next i
+					Next j
+					
+					if  ninegramformat = 8 then ' only need half the entries for this format since 4-bit
+						'd1 = 1 + (d1 shr 1)
+						if (d1 mod 2) = 1 then
+							d1 = 1 + (d1 shr 1)
+						else
+							d1 = (d1 shr 1)
+						endif
+					endif
+					
+					
+					Select case pivot-65
+						Case 0: redim gxa9(d1,d2)
+						Case 1: redim gxb9(d1,d2)
+						Case 2: redim gxc9(d1,d2)
+						Case 3: redim gxd9(d1,d2)
+						Case 4: redim gxe9(d1,d2)
+						Case 5: redim gxf9(d1,d2)
+						Case 6: redim gxg9(d1,d2)
+						Case 7: redim gxh9(d1,d2)
+						Case 8: redim gxi9(d1,d2)
+						Case 9: redim gxj9(d1,d2)
+						Case 10:redim gxk9(d1,d2)
+						Case 11:redim gxl9(d1,d2)
+						Case 12:redim gxm9(d1,d2)
+						Case 13:redim gxn9(d1,d2)
+						Case 14:redim gxo9(d1,d2)
+						Case 15:redim gxp9(d1,d2)
+						Case 16:redim gxq9(d1,d2)
+						Case 17:redim gxr9(d1,d2)
+						Case 18:redim gxs9(d1,d2)
+						Case 19:redim gxt9(d1,d2)
+						Case 20:redim gxu9(d1,d2)
+						Case 21:redim gxv9(d1,d2)
+						Case 22:redim gxw9(d1,d2)
+						Case 23:redim gxx9(d1,d2)
+						Case 24:redim gxy9(d1,d2)
+						Case 25:redim gxz9(d1,d2)
+					End Select
+
+					
+					ngram_mem += d1*d2
+					
+					If ninegramformat <> 9 Then
+						fileData3 = Allocate(max_count*4)
+					EndIf
+					
+					total_items = filelen1
+					
+					For j = 0 To j2
+						For i = 255 To 1 Step -1
+							hop_len_s = tablecount(j,i)
+							If hop_len_s > 0 then
+								
+								If ninegramformat <> 9 Then
+									buf_len_s = 0
+									bytesRead = gzread( gzf, fileData3, hop_len_s*4 )
+								Else
+									buf_offset = buf_len_s
+								EndIf
+								
+								if ninegramformat = 3 then
+									if i > highgram Then highgram = i
+								endif
+								
+								While (buf_len_s - buf_offset) < hop_len_s
+									
+									x1 = (fileData3[buf_len_s] Shl 8) + fileData3[hop_len_s+buf_len_s]
+									x2 = (fileData3[2*hop_len_s+buf_len_s] Shl 8) + fileData3[3*hop_len_s+buf_len_s]
+									
+									If j = 1 Then
+										x2 += 65536    ' YES THIS IS CORRECT, encoder is built like this
+									ElseIf j = 2 Then
+										x1 += 65536
+									ElseIf j = 3 Then
+										x1 += 65536
+										x2 += 65536
+									EndIf
+									
+									Select case pivot-65
+										Case 0: gxa9(x1,x2) = i
+										Case 1: gxb9(x1,x2) = i
+										Case 2: gxc9(x1,x2) = i
+										Case 3: gxd9(x1,x2) = i
+										Case 4: gxe9(x1,x2) = i
+										Case 5: gxf9(x1,x2) = i
+										Case 6: gxg9(x1,x2) = i
+										Case 7: gxh9(x1,x2) = i
+										Case 8: gxi9(x1,x2) = i
+										Case 9: gxj9(x1,x2) = i
+										Case 10:gxk9(x1,x2) = i
+										Case 11:gxl9(x1,x2) = i
+										Case 12:gxm9(x1,x2) = i
+										Case 13:gxn9(x1,x2) = i
+										Case 14:gxo9(x1,x2) = i
+										Case 15:gxp9(x1,x2) = i
+										Case 16:gxq9(x1,x2) = i
+										Case 17:gxr9(x1,x2) = i
+										Case 18:gxs9(x1,x2) = i
+										Case 19:gxt9(x1,x2) = i
+										Case 20:gxu9(x1,x2) = i
+										Case 21:gxv9(x1,x2) = i
+										Case 22:gxw9(x1,x2) = i
+										Case 23:gxx9(x1,x2) = i
+										Case 24:gxy9(x1,x2) = i
+										Case 25:gxz9(x1,x2) = i
+									End Select
+									
+									ngram_count+=1
+
+									if ninegramformat = 8 and (i > 15) and ( (i and &HF) > 0) then ' since 4-bit format, if both halves have data, count twice
+										ngram_count+=1
+									endif
+
+									buf_len_s+=1
+									acu_len_s+=4
+
+									curr_items = acu_len_s
+					
+									#include "ngram_loading_progress.bi"
+									
+								wend
+								
+							endif
+							
+						Next i 
+					Next j
+					
+					If ninegramformat <> 9 Then
+						DeAllocate(fileData3)
+					EndIf
+					
+					'-----
+					
+					pivot += 1
+					
+				Wend
+									
+				If ninegramformat = 0 Then
+					ReDim g53(0,0,0,0,0)
+					ReDim g54(0,0,0,0,0)
+				Else
+					ReDim g51(0,0,0,0,0)
+					ReDim g52(0,0,0,0,0)
+				endif
+
+
 		end select
 	
 	end if
@@ -32505,7 +33059,7 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 	dim as short maps(constcip)
 	dim as short maps2(constcip)
 	dim as integer mi,mj
-
+	
 	dim as ubyte nwor(constcip)
 	dim as double wscore
 	
@@ -32752,18 +33306,43 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 							temp_min=temp/iterations
 							new_ngram_score=0
 							
-							'select case ngram_size
-							'	case 8
+							select case ngram_size
+								case 8
 									for i=1 to al
 										ngrams(i)=bh8(bh4(sol(i),sol(i+1),sol(i+2),sol(i+3)),bh4(sol(i+4),sol(i+5),sol(i+6),sol(i+7)))
 										new_ngram_score+=ngrams(i)
 									next i
+								case 8
+									for j=1 to al
+
+										If ninegramformat = 0 Then
+											z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+										Else
+											z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+										endif
+										If z1 = 0 Then
+											ngrams(j) = 0
+										Else
+											If ninegramformat = 0 Then
+												z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+											Else
+												z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+											endif
+											If z2 = 0 Then
+												ngrams(j) = 0
+											else
+													#include "solver_case9.bi"
+											EndIf
+										EndIf
+									
+										new_ngram_score+=ngrams(j)
+									next j
 								'case 10
 								'	for i=1 to al
 								'		ngrams(i)=bh10(bh5(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4)),bh5(sol(i+5),sol(i+6),sol(i+7),sol(i+8),sol(i+9)))
 								'		new_ngram_score+=ngrams(i)
 								'	next i
-							'end select
+							end select
 							
 							mc=5
 							mc_minus=(mc-1)/iterations
@@ -32787,12 +33366,14 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 									k=1+map2(curr_symbol,0)*state shr 31
 									j=map2(curr_symbol,k)
 									new_letter=abc_size
-									'select case ngram_size
-									'	case 8
+									select case ngram_size
+										case 8
 											#include "solver_pickletter_bh8.bi"
+										case 9
+											#include "solver_pickletter_bh9.bi"
 									'	case 10
 									'		#include "solver_pickletter_bh10.bi"
-									'end select
+									end select
 									if new_letter=old_letter or new_letter=abc_size then
 										#include "solver_randomnewletter.bi"
 									end if
@@ -32927,8 +33508,8 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 									for i=1 to map1(curr_symbol,0)
 										sol(map1(curr_symbol,i))=new_letter
 									next i
-									'select case ngram_size 
-									'	case 8
+									select case ngram_size 
+										case 8
 											for i=1 to num_ngrams
 												z=0
 												j=map2(curr_symbol,i)
@@ -32939,6 +33520,33 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 												end if
 												score_needed-=z*hi
 												if (num_ngrams-i)<score_needed then exit for
+												new_ngram_score+=z
+												if score_needed<0 then exit for
+											next i
+										case 9
+											for i=1 to num_ngrams
+												j=map2(curr_symbol,i)
+												If ninegramformat = 0 Then
+													z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												Else
+													z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												endif
+												If z1 = 0 Then
+													z = 0
+												Else
+													If ninegramformat = 0 Then
+														z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													Else
+														z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													endif
+													If z2 = 0 Then
+														z = 0
+													else
+															#include "solver_case9z.bi"
+													EndIf
+												endif
+												score_needed-=z*hi
+												if num_ngrams-i<score_needed then exit for
 												new_ngram_score+=z
 												if score_needed<0 then exit for
 											next i
@@ -32956,7 +33564,7 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 										'		new_ngram_score+=z
 										'		if score_needed<0 then exit for
 										'	next i
-									'end select
+									end select
 									if score_needed>=0 then
 										for i=1 to map1(curr_symbol,0)
 											sol(map1(curr_symbol,i))=old_letter
@@ -32983,20 +33591,44 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 									frq(new_letter)+=mape2(curr_symbol)
 									stl(curr_symbol)=new_letter
 									
-									'select case ngram_size
-									'	case 8
+									select case ngram_size
+										case 8
 											for h=1 to num_ngrams
 												j=map2(curr_symbol,h)
 												ngrams(j)=bh8(bh4(sol(j),sol(j+1),sol(j+2),sol(j+3)),bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7)))
 												if h>i then new_ngram_score+=ngrams(j)
 											next h
+										case 9
+											for k=1 to num_ngrams
+												j=map2(curr_symbol,k)
+												If ninegramformat = 0 Then
+													z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												Else
+													z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												endif
+												If z1 = 0 Then
+													ngrams(j) = 0
+												Else
+													If ninegramformat = 0 Then
+														z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													Else
+														z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													EndIf
+													If z2 = 0 Then
+														ngrams(j) = 0
+													else
+															#include "solver_case9.bi"
+													EndIf
+												endif
+												if k>i then new_ngram_score+=ngrams(j)
+											next k
 									'	case 10
 									'		for h=1 to num_ngrams
 									'			j=map2(curr_symbol,h)
 									'			ngrams(j)=bh10(bh5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4)),bh5(sol(j+5),sol(j+6),sol(j+7),sol(j+8),sol(j+9)))
 									'			if h>i then new_ngram_score+=ngrams(j)
 									'		next h
-									'end select
+									end select
 									
 									new_score=new_ngram_score*ngfal*ent2
 									
