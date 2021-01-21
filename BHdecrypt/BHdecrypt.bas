@@ -4,6 +4,28 @@
 ' 
 ' icon: Unlock by Graphicloads
 '
+' major improvements:
+'
+' - GOV static function n-gram file formats (sf3, sf4, csf3, csf4)
+'   - Allows 9-gram and 10-gram files
+'   - Allows 8-grams to load in 2GB mem vs 14-16GB in regular bh or binary bh format
+'
+'
+' - Experimental "folded" 9-gram file support
+'
+' - Experimental wordgram support with 1-word and 2-word guided solves enabled
+'   - Works in regular substitution, mono groups, and bigram solver so far
+'
+' minor improvements:
+'
+' - clearer monospaced font
+' - custom zlibWrapper zstd static library linked in for zstd support (50% faster loading than zlib)
+' - higher performance static Intel/AMD-optimized zlib (+15-30% speed improvement)
+' - stack size reduced from 98MB -> 1MB per thread
+' - better memmory allocator with less overshoot on large allocations (jemalloc)
+' - total mem usage on startup reduced 10-50%
+' - uses more CPU threads by default
+'
 '--------------
 'Known bugs:
 '--------------
@@ -37,6 +59,9 @@ randomize timer,1 'rng=rand()
 
 'includes
 '------------------------------------------------------------
+#include "jemalloc.bi"
+
+
 #ifndef __fb_linux__
 	#include "win_gui.bi"
 	#include "win_dialogs.bi"
