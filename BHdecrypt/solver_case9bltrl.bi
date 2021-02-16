@@ -11,9 +11,9 @@ If ninegramformat = 4 orelse ninegramformat = 6 then
    endif
 elseif ninegramformat = 8 then
 	z_offset=0
-	if z1 > ninegram_half(rl(i)) then
+	if z1 > ninegram_half(i) then
 		z_offset = 1
-		z1 -= ninegram_half(rl(i))
+		z1 -= ninegram_half(i)
 	endif	
 elseif ninegramformat = 5 then
    if (z1 and &H1000000) > 0 then
@@ -51,7 +51,7 @@ elseif ninegramformat = 5 then
    endif
 endif
 
-Select case rl(i)
+Select case i
 Case 0: blt=gxa9(z1,z2)
 Case 1: blt=gxb9(z1,z2)
 Case 2: blt=gxc9(z1,z2)

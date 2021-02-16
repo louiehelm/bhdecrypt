@@ -90,7 +90,7 @@ case button_main_process
 									thread_ptr(threadsmax+1)=threadcreate(@thread_solve_vigenerelist,0)
 								case "Substitution + word cribs"
 									thread_ptr(threadsmax+1)=threadcreate(@thread_solve_wordcribs,0)
-								case "Substitution + crib list"
+								case "Substitution + crib list","Substitution + mono groups + crib list"
 									thread_ptr(threadsmax+1)=threadcreate(@thread_solve_criblist,0)
 								case "Substitution + units"
 									if un_windowup=0 then

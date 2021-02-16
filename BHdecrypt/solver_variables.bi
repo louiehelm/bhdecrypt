@@ -36,5 +36,15 @@ dim as double entropy1,entropy2 'vigenere
 
 dim as string filename,solstring
 
-
-dim as ushort wor(constcip),words 'word array
+dim as ubyte fg, old_fg 'firstgrams
+dim as ubyte sg, old_sg 'lastgrams
+dim as ubyte slg, old_slg 'secondlastgrams
+dim as ubyte lg, old_lg 'lastgrams
+	
+dim as ushort wor(constcip) 'word array
+dim as ubyte nwor(constcip)
+dim as double wscore=0.0
+dim as integer words=0,nwlen=0,wordlen=0,wngs=7
+if solvesub_7gwordgrams=0 then
+	wngs=6
+end if

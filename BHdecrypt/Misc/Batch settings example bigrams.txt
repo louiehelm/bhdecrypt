@@ -1,0 +1,3 @@
+file: \ciphers\batch\Bigram accuracy batch.txt
+range: entropy 0.5 1.5 0.1 temperature 1200
+process

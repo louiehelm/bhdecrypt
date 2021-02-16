@@ -6,6 +6,8 @@
 '
 ' major improvements:
 '
+' - Uses firstgrams, secondgrams, second-to-last-grams, and lastgrams to stablize solves and improve solve accuracy + convergance speed 
+' 
 ' - GOV static function n-gram file formats (sf3, sf4, csf3, csf4)
 '   - Allows 9-gram and 10-gram files
 '   - Allows 8-grams to load in 2GB mem vs 14-16GB in regular bh or binary bh format
@@ -13,11 +15,12 @@
 '
 ' - Experimental "folded" 9-gram file support
 '
-' - Experimental wordgram support with 1-word and 2-word guided solves enabled
+' - Wordgram support with 1-word and 2-word guided solves enabled
 '   - Works in regular substitution, mono groups, and bigram solver so far
 '
 ' minor improvements:
 '
+' - max cipher length increased from 2000 to 5000
 ' - clearer monospaced font
 ' - custom zlibWrapper zstd static library linked in for zstd support (50% faster loading than zlib)
 ' - higher performance static Intel/AMD-optimized zlib (+15-30% speed improvement)
@@ -59,7 +62,7 @@ randomize timer,1 'rng=rand()
 
 'includes
 '------------------------------------------------------------
-#include "jemalloc.bi"
+'#include "jemalloc.bi"
 
 
 #ifndef __fb_linux__
@@ -77,13 +80,26 @@ randomize timer,1 'rng=rand()
 #include "win/shlobj.bi"
 #include "string.bi" ' for format function to replace format
 
+'#include once "md/util/mdMap.bi"
+'mdMapDeclare(string, ubyte)
+'dim shared as mdMap(string, ubyte) map
+
+'#include "jaggedarray.bi"
+'jaggedArray(ubyte)
+'Dim As Integer size(...) = {5, 3, 4}
+'Dim As jaggedArrayubyte array = size()
+
+'dim as ubyte tempubyte
+'tempubyte = map.put("THAT", 255)
+'tempubyte = map.put("THIS", 250)
+
 '#include "PCG32II.bas"
 'dim shared pcg(65536) as pcg32
 
 'constants
 '------------------------------------------------------------
 const lb=chr(13)+chr(10) 'line break
-const constcip=2000 'max cipher length
+const constcip=5000 'max cipher length
 const constfrq=100 'max alphabet size (ABC...)
 const constent=constcip*10 'max entropy table = constcip * max ngram_size
 
@@ -532,6 +548,7 @@ dim shared as integer ngram_lowval
 dim shared as integer ngram_highval
 dim shared as uinteger ngram_avgval
 dim shared as uinteger ngram_values(255)
+
 dim shared as string ngram_format
 dim shared as short alphabet(255)
 dim shared as short alpharev(255)
@@ -680,6 +697,7 @@ dim shared as integer ngram_standardalphabet
 dim shared as integer firststart
 dim shared as integer addspaces_ngrams
 dim shared as integer solvesub_addspacesquality
+dim shared as integer solvesub_bonusgrams_enabled
 dim shared as integer solvesub_wordgrams_enabled
 dim shared as integer solvesub_7gwordgrams
 
@@ -747,7 +765,21 @@ static shared as ushort wlptr()
 
 'beijinghouse n-gram arrays/variables:
 '------------------------------------------------------------
+
+static shared as ubyte fg6(0,0,0,0,0,0)		' first gram array
+static shared as ubyte sg6(0,0,0,0,0,0)		' second gram array
+static shared as ubyte slg6(0,0,0,0,0,0)		' second last gram array
+static shared as ubyte lg6(0,0,0,0,0,0)		' last gram array
+
+static shared as ulong max_allowed_table_index
 static shared as ubyte bh8()
+
+'static shared as ubyte bh8f()								' 8-gram first, last, second, secondlast-grams
+'static shared as ubyte bh8l()
+'static shared as ubyte bh8s()
+'static shared as ubyte bh8sl()
+
+
 static shared as ulong bh4()
 'static shared as ubyte bh10()
 'static shared as ulong bh5()
@@ -1145,7 +1177,7 @@ sub file_load_settings
 	ngrambias_showmsg=1
 	solvesub_ngramcaching=0
 	solvesub_sdbias=0.55
-	solvesub_solutionreleasetimer=60
+	solvesub_solutionreleasetimer=10
 	solvesub_addspaces=1
 	solvesub_addspacesquality=25
 	
@@ -1754,6 +1786,7 @@ sub create_window_main
 	ui_listbox_addstring(list_main,"Substitution + columnar transposition")
 	ui_listbox_addstring(list_main,"Substitution + crib grid")
 	ui_listbox_addstring(list_main,"Substitution + crib list")
+	ui_listbox_addstring(list_main,"Substitution + mono groups + crib list")
 	ui_listbox_addstring(list_main,"Substitution + monoalphabetic groups")
 	ui_listbox_addstring(list_main,"Substitution + nulls and skips")
 	ui_listbox_addstring(list_main,"Substitution + polyphones")
@@ -2717,7 +2750,7 @@ sub toggle_solverthreads(array()as integer,byval length as integer,byval symbols
 	
 	dim as integer i,j,t
 	dim as string errornosize="Error: solver does not work with current n-gram size"
-	dim as string errorno2="Error: solver only works with 8-grams"
+	dim as string errorno2="Error: solver only works with 8-grams or 9-grams"
 	
 	select case toggle
 		case 1 'start threads
@@ -2732,7 +2765,7 @@ sub toggle_solverthreads(array()as integer,byval length as integer,byval symbols
 							select case ngram_size
 								case 2 to 7
 									thread_ptr(i)=threadcreate(@bhdecrypt_234567810g,cptr(any ptr,i))
-								case 8,10
+								case 8,9,10
 									thread_ptr(i)=threadcreate(@bhdecrypt_810g,cptr(any ptr,i))
 							end select
 						end if
@@ -2744,26 +2777,26 @@ sub toggle_solverthreads(array()as integer,byval length as integer,byval symbols
 								select case ngram_size
 									case 2 to 7
 										thread_ptr(i)=threadcreate(@bhdecrypt_234567810g,cptr(any ptr,i))
-									case 8,10
+									case 8,9,10
 										thread_ptr(i)=threadcreate(@bhdecrypt_810g,cptr(any ptr,i))
 								end select
 							end if
 						else 'use sequential homophones
 							thread_ptr(i)=threadcreate(@bhdecrypt_seqhom_234567810g,cptr(any ptr,i))
 						end if
-					case "Substitution + monoalphabetic groups"
+					case "Substitution + monoalphabetic groups","Substitution + mono groups + crib list"
 						select case ngram_size
-							case 8,10:thread_ptr(i)=threadcreate(@bhdecrypt_groups_810g,cptr(any ptr,i))
+							case 8,9,10:thread_ptr(i)=threadcreate(@bhdecrypt_groups_810g,cptr(any ptr,i))
 							case else:ui_editbox_settext(output_text,errorno2):solverexist=0
 						end select
 					case "Higher-order homophonic"
 						select case ngram_size
-							case 8,10:thread_ptr(i)=threadcreate(@bhdecrypt_higherorder_810g,cptr(any ptr,i))
+							case 8,9,10:thread_ptr(i)=threadcreate(@bhdecrypt_higherorder_810g,cptr(any ptr,i))
 							case else:ui_editbox_settext(output_text,errorno2):solverexist=0
 						end select
 					case "Bigram substitution"
 						select case ngram_size
-							case 8,10:thread_ptr(i)=threadcreate(@bhdecrypt_bigram_810g,cptr(any ptr,i))
+							case 8,9,10:thread_ptr(i)=threadcreate(@bhdecrypt_bigram_810g,cptr(any ptr,i))
 							case else:ui_editbox_settext(output_text,errorno2):solverexist=0
 						end select
 					case "Substitution + sequential homophones"
@@ -4756,13 +4789,13 @@ sub normalize_ngramfactor
 	dim as double ngram_score,score,entropy
 	dim as string o
 	dim as string text=intext
-	Dim As UByte ngrams(l) ' dummy variable so inner gov sections compile
 	m = 1000 ' simply set to >0 (and not ngs-1) so gov sections use full guard checking
 	in_picker = 1
 	
 	l=len(text)
 	
 	dim as byte cip(l),sol(l)
+	dim as ubyte ngrams(l) ' needed for gov and 9-grams
 	dim as integer frq(25)
 	
 	dim as double enttable(l) 'update with max frequency
@@ -4775,6 +4808,7 @@ sub normalize_ngramfactor
 			sol(i+1)=text[i] ' regular ascii codes in standard sol array for gov files
 		else
 			cip(i+1)=text[i]-65  ' old 0-25 range for regular/bh files
+			sol(i+1)=text[i]-65  ' needed for 9-gram normalizing
 		endif
 	'	cip(i+1)=text[i]-65
 		frq(text[i]-65)+=1
@@ -4792,9 +4826,51 @@ sub normalize_ngramfactor
 				case 4:ngram_score+=g4(cip(i),cip(i+1),cip(i+2),cip(i+3))	
 				case 5:ngram_score+=g5(cip(i),cip(i+1),cip(i+2),cip(i+3),cip(i+4))	
 				case 6:ngram_score+=g6(cip(i),cip(i+1),cip(i+2),cip(i+3),cip(i+4),cip(i+5))
-				'case 7:ngram_score+=g7(cip(i),cip(i+1),cip(i+2),cip(i+3),cip(i+4),cip(i+5),cip(i+6))
+				case 7:ngram_score+=g7(cip(i),cip(i+1),cip(i+2),cip(i+3),cip(i+4),cip(i+5),cip(i+6))
 				case 8:ngram_score+=bh8(bh4(cip(i),cip(i+1),cip(i+2),cip(i+3)),bh4(cip(i+4),cip(i+5),cip(i+6),cip(i+7)))
+
+'					if i=1 or i=l-(ngram_size-1) then
+'						z1 = bh4(cip(i),cip(i+1),cip(i+2),cip(i+3))
+'						if z1 <> 0 and z1 < max_allowed_table_index / sqr(2) then
+'							z2 = bh4(cip(i+4),cip(i+5),cip(i+6),cip(i+7))
+'							if z2 <> 0 and z2 < max_allowed_table_index / sqr(2) then
+'								if i=1 then
+'									ngram_score+=bh8f(z1,z2)
+'								else
+'									ngram_score+=bh8l(z1,z2)
+'								end if
+'							end if
+'						end if
+'					else	
+'						ngram_score+=bh8(bh4(cip(i),cip(i+1),cip(i+2),cip(i+3)),bh4(cip(i+4),cip(i+5),cip(i+6),cip(i+7)))
+'					end if
 				'case 10:ngram_score+=bh10(bh5(cip(i),cip(i+1),cip(i+2),cip(i+3),cip(i+4)),bh5(cip(i+5),cip(i+6),cip(i+7),cip(i+8),cip(i+9)))
+
+				case 9
+					j=i
+
+					If ninegramformat = 0 Then
+						z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+					Else
+						z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+					endif
+					If z1 = 0 Then
+						ngrams(j) = 0
+					Else
+						If ninegramformat = 0 Then
+							z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+						Else
+							z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+						endif
+						If z2 = 0 Then
+							ngrams(j) = 0
+						else
+								#include "solver_case9.bi"
+						EndIf
+					EndIf
+				
+					ngram_score+=ngrams(j)
+
 			end select
 		else ' gov format
 			j=i
@@ -12083,15 +12159,17 @@ sub thread_solve_cribgrid(byval none as any ptr)
 	if task_active="bigram substitution" then
 		select case ngram_size
 			case 8:solvesub_entweight=0.75:solvesub_fastent=3
-			case 10:solvesub_entweight=0.75:solvesub_fastent=3
+			case 9:solvesub_entweight=0.75:solvesub_fastent=0
+			case 10:solvesub_entweight=0.5:solvesub_fastent=2
 		end select
 		normalize_ngramfactor
 	end if
 	
 	if task_active="substitution + monoalphabetic groups" then
 		select case ngram_size
-			case 8:solvesub_entweight=0.1:solvesub_fastent=0
-			case 10:solvesub_entweight=0.1:solvesub_fastent=0
+			case 8:solvesub_entweight=0.2:solvesub_fastent=0
+			case 9:solvesub_entweight=0.2:solvesub_fastent=0
+			case 10:solvesub_entweight=0.075:solvesub_fastent=0
 		end select
 		normalize_ngramfactor
 	end if
@@ -12138,7 +12216,7 @@ sub thread_solve_cribgrid(byval none as any ptr)
 				#include "thread_solve_output.bi"
 				if solvesub_bigramautocrib>0 then os+="Auto-crib iterations: "+str(acits)+lb
 				if timertest=1 andalso avgits>0 then os+="Its: "+str(avgits)+" AVG time:"+str(stt(avgsolvetime/avgits))+" AVG items: "+format(avgrestarts/avgits,"0.00")+lb
-				if task_active="substitution + monoalphabetic groups" then os+=lb+"Collisions: "+str(thread(t).ioc2)+lb
+				if task_active="substitution + monoalphabetic groups" or task_active="substitution + mono groups + crib list" then os+=lb+"Collisions: "+str(thread(t).ioc2)+lb
 				os+=lb
 				os+=info_to_string(thread(t).sol(),thread(t).l,dx,dy,0,solvesub_addspaces,0)
 				
@@ -12359,10 +12437,23 @@ sub thread_solve_criblist(byval none as any ptr)
 	dim as short key(constcip)
 	dim as integer ngram_score
 	dim as byte use_tm
-	
-	task_active="substitution + crib list"
+
+	task_active=lcase(ui_listbox_gettext(list_main,ui_listbox_getcursel(list_main)))
+
+	if task_active="substitution + mono groups + crib list" then
+		select case ngram_size
+			case 8:solvesub_entweight=0.2:solvesub_fastent=0
+			case 9:solvesub_entweight=0.2:solvesub_fastent=0
+			case 10:solvesub_entweight=0.075:solvesub_fastent=0
+		end select
+		normalize_ngramfactor
+	else
+		task_active="substitution + crib list"	
+	end if
+
 	update_solver_status
-	
+
+
 	dim as string filename=ui_loadsavedialog(0,"Open crib list",filter,1,basedir+"\Misc\")
 	
 	if fileexists(filename)=0 then
@@ -17506,6 +17597,7 @@ sub thread_batch_ciphers_substitution(byval none as any ptr)
 	
 	if batchciphers_showmsg=1 then
 		set_solverhighlight("substitution")
+'		set_solverhighlight("bigram substitution") ' beijinghouse special dev testing
 		'ui_listbox_setcursel(list_main,0) 'set solver to Substitution
 		toggle_solverthreads(empty(),0,0,0,0,basedir+"\Output\",4,1,threads) 'stop solver
 		toggle_solverthreads(empty(),0,0,0,0,basedir+"\Output\",2,1,threads) 'stop thread
@@ -27842,7 +27934,7 @@ sub pickletter_caching(byval showmsg as ubyte)
 					ui_editbox_settext(output_text,o)
 				end if
 			else
-				dim as uinteger cachebh8_nfb=8*(ngram_alphabet_size^3)*ngram_maxtableindex
+				dim as uinteger cachebh8_nfb=8*ngram_alphabet_size^3*ngram_maxtableindex
 				if fre>=cachebh8_nfb then
 					redim cachebh80(0,0,0,0)
 					redim cachebh81(0,0,0,0)
@@ -28353,7 +28445,10 @@ function info_to_string(array()as long,byval l as integer,byval dx as integer,by
 				j=0
 			end if
 		next i
-		
+
+
+		if solvesub_wordgrams_enabled=1 then
+			
 		'word n-gram score
 		'-----------------------------------------------------------	
 		s2=""
@@ -28381,7 +28476,7 @@ function info_to_string(array()as long,byval l as integer,byval dx as integer,by
 		's+=" "+rdc(word_score/(words-2),2)
 		'-----------------------------------------------------------
 
-		if solvesub_wordgrams_enabled=1 then
+
 
 			'word gram score addon:
 			'----------------------
@@ -28472,21 +28567,26 @@ function info_to_string(array()as long,byval l as integer,byval dx as integer,by
 								if i<l then s+=lb
 							end if
 						else
-							'nwlen+=1
-							'nwor(nwlen)=sol(i)
-							s+="*" 'write word string
-							for k=0 to wl(j,0)-1
-								s+=chr(sol(i+k)+65)
-							next k
-							s+="* ":h+=wl(j,0)+1
-							if h>40 then
-								h=0
-								s+=lb
-							end if
-							'---------------------------------------------
-							words+=1
-							wor(words)=0
-							i+=wl(j,0)-1 'skip other letters of the found word
+''							'nwlen+=1
+''							'nwor(nwlen)=sol(i)
+''							s+="*" 'write word string
+''							for k=0 to wl(j,0)-1
+''								s+=chr(sol(i+k)+65)
+''							next k
+''							s+="* ":h+=wl(j,0)+1
+''							if h>40 then
+''								h=0
+''								s+=lb
+''							end if
+''							'---------------------------------------------
+''							words+=1
+''							wor(words)=0
+''							i+=wl(j,0)-1 'skip other letters of the found word
+
+							' TESTING these two lines instead
+							nwlen+=1
+							nwor(nwlen)=sol(i)
+
 						end if
 					else
 						words+=1
@@ -28756,11 +28856,13 @@ end function
 sub thread_load_ngrams(byval none as any ptr)
 	
 	dim as integer a,b,e,h,i,j,k,l,m,x1,x2,x3,x4,x5,x6,x7,x8,x9,x10,nm1,old
-	dim as integer abortload,curr_items,total_items,thread_loadngrams_showmsg
-	dim as integer max_allowed_table_index,nfb,nfb2,filelen1,bytecode_size
+	dim as ubyte ub
+	dim as ulongint h0,h1,h2,h3,curr_items,total_items
+	dim as integer abortload,thread_loadngrams_showmsg
+	dim as integer nfb,nfb2,filelen1,bytecode_size
 	dim as double newtemp,loadngramtimer,start_time=timer
 	dim as string file_name_ngrams=solvesub_ngramloctemp
-	dim as string s,num,ot,file_name_ngramsini,table_file,pos_file,pos2_file,space_file
+	dim as string s,num,ot,file_name_ngramsini,table_file,first_file,last_file,pos_file,pos2_file,space_file
 	dim as gzfile gzf
 	
 	if fileexists(file_name_ngrams)=0 then 'check if file exist
@@ -28819,11 +28921,16 @@ sub thread_load_ngrams(byval none as any ptr)
 		ngram_format="binary"
 		ngram_size=val(right(s,len(s)-(instr(s,"b")+0)))
 	end if
-	if instr(s,"t")>0 then 'binary format
+	if instr(s,"t")>0 then 'text format
 		fileformat=2
 		ngram_format="text"
-		ngram_size=val(right(s,len(s)-(instr(s,"b")+0))) ' TODO: should this be a instr t instead of b???
+		ngram_size=val(right(s,len(s)-(instr(s,"t")+0)))
 	end if
+'	if instr(s,"hm")>0 then 'hashmap format
+'		fileformat=-2
+'		ngram_format="hashmap"
+'		ngram_size=val(right(s,len(s)-(instr(s,"hm")+1)))
+'	end if
 	if instr(s,"bh")>0 then 'beijinghouse
 		ngram_size=val(right(s,len(s)-(instr(s,"bh")+1)))
 	end if
@@ -28872,6 +28979,20 @@ sub thread_load_ngrams(byval none as any ptr)
 							end if
 						end if
 					end if
+'				first_file=left(file_name_ngrams,instr(file_name_ngrams,".txt")-1)+"_first.txt"
+'					if fileexists(table_file)=0 then
+'						first_file=left(file_name_ngrams,instr(file_name_ngrams,".txt")-1)+"_first.txt.zst"
+'						if fileexists(table_file)=0 then
+'							first_file="" ' no firstgram file found
+'						end if
+'					end if
+'				last_file=left(file_name_ngrams,instr(file_name_ngrams,".txt")-1)+"_last.txt"
+'					if fileexists(table_file)=0 then
+'						last_file=left(file_name_ngrams,instr(file_name_ngrams,".txt")-1)+"_last.txt.zst"
+'						if fileexists(table_file)=0 then
+'							last_file="" ' no lastgram file found
+'						end if
+'					end if
 			case else:abortload=1
 		end select
 	end if
@@ -29026,6 +29147,8 @@ sub thread_load_ngrams(byval none as any ptr)
 		redim g7(0,0,0,0,0,0,0),g7b(0,0,0,0,0,0,0)
 		'------------------------------------------------------------------------
 		redim bh8(0,0),bh4(0,0,0,0) 'beijinghouse
+		'redim bh8f(0,0),bh8l(0,0) 'beijinghouse
+		'redim bh8s(0,0),bh8sl(0,0) 'beijinghouse
 		'redim bh10(0,0),bh5(0,0,0,0,0)
 		redim cachebh80(0,0,0,0)
 		redim cachebh81(0,0,0,0)
@@ -29141,6 +29264,8 @@ sub thread_load_ngrams(byval none as any ptr)
 				case else:filelen1 = bytecode_size				
 			end select
 			total_items=filelen1
+	elseif instr(file_name_ngrams,".zst") andalso fileformat=2 then
+		filelen1=filelen(file_name_ngrams) / 3.65 ' can only estimate since zstd has no total size info
 	Else
 		filelen1=filelen(file_name_ngrams)
 	End if
@@ -29165,13 +29290,12 @@ sub thread_load_ngrams(byval none as any ptr)
 	'-----------------------------
 	dim fd as ubyte ptr 'file data
 	dim fs as ushort ptr 'file data
-	dim as integer buffer=1050600
+	dim as integer buffer=1050600*4 ' beijinghouse 4MB buffer = 10% faster reading vs 1MB
 	dim as integer bytesread=buffer
 	dim as integer totalbytes=buffer
 	dim as integer bl=buffer
 	dim as integer extra_chars,last_read
 	fd=allocate(buffer)
-	fs=allocate(buffer)
  	
 	ngram_count=0
 	count3=0
@@ -29187,57 +29311,76 @@ sub thread_load_ngrams(byval none as any ptr)
 	ngram_lowval=999
 	ngram_highval=0
 	erase ngram_values
-	
 
+	solvesub_bonusgrams_enabled=1
 	solvesub_wordgrams_enabled=1
 	solvesub_7gwordgrams=1
 
-   'firststart=0 ' TODO: remove. testing with less mem
-   
-	if firststart=1 then 'load n-grams that add spaces to output
-		pos_file=basedir+"\N-grams\Spaces\5-grams_positions"
-		space_file=basedir+"\N-grams\Spaces\5-grams_english+spaces_jarlve_reddit.txt.zst"
-		if fileexists(pos_file)=-1 andalso fileexists(space_file)=-1 then
-			pi=@g5p(0,0,0,0,0)
-			gzf=gzopen(pos_file,"rb")
-			k=0
-			for i=0 to ((25+1)^5)-1
-				if k=0 then
-					bl=0
-					k=buffer
-					gzread(gzf,fd,buffer)
-				end if
-				k-=1 'byte
-				j=fd[bl]
-				bl+=1
-				'if j>25 then j=25 'max pos
-				pi[i]=j
-			next i
-			gzclose(gzf)
-			pi=@g5s(0,0,0,0,0)
-			gzf=gzopen(space_file,"rb")
-			k=0
-			for i=0 to ((26+1)^5)-1
-				if k=0 then
-					bl=0
-					k=buffer
-					gzread(gzf,fd,buffer)
-				end if
-				k-=1 'byte
-				j=fd[bl]
-				bl+=1
-				pi[i]=j
-			next i
-			gzclose(gzf)
-			addspaces_ngrams=1
-		end if
-		'firststart=0 '<---------------------------------------------------- COMMENTED FOR WORD 2-GRAM TEST !!!! -----------------------------------------
+	' TODO: eventually use uncompressed binary with mem map for instant load
+	if firststart=1 and solvesub_bonusgrams_enabled=1 then
+
+		redim fg6(25,25,25,25,25,25)
+		redim sg6(25,25,25,25,25,25)
+		redim slg6(25,25,25,25,25,25)
+		redim lg6(25,25,25,25,25,25)
+
+		solver_file_name_ngrams="Bonus Grams [1.2GB mem]"
+		ot=str(solver_file_name_ngrams)+lb
+		ot+="--------------------------------------------------------"+lb
+		ot+="Loading progress: 0.0%"
+		if loadngrams_showmsg=1 then ui_editbox_settext(output_text,ot)
+
+		gzf=gzopen(basedir+"\N-grams\Positional\6-firstgramsb40.txt.zst","rb")
+		pi=@fg6(0,0,0,0,0,0)
+		gzread(gzf, pi, 26^6)
+		gzclose(gzf)
+
+		solver_file_name_ngrams="Bonus Grams [1.2GB mem]"
+		ot=str(solver_file_name_ngrams)+lb
+		ot+="--------------------------------------------------------"+lb
+		ot+="Loading progress: 25.0%"
+		if loadngrams_showmsg=1 then ui_editbox_settext(output_text,ot)
+
+		gzf=gzopen(basedir+"\N-grams\Positional\6-secondgramsb40.txt.zst","rb")
+		pi=@sg6(0,0,0,0,0,0)
+		gzread(gzf, pi, 26^6)
+		gzclose(gzf)
+
+		solver_file_name_ngrams="Bonus Grams [1.2GB mem]"
+		ot=str(solver_file_name_ngrams)+lb
+		ot+="--------------------------------------------------------"+lb
+		ot+="Loading progress: 50.0%"
+		if loadngrams_showmsg=1 then ui_editbox_settext(output_text,ot)
+
+		gzf=gzopen(basedir+"\N-grams\Positional\6-secondlastgramsb40.txt.zst","rb")
+		pi=@slg6(0,0,0,0,0,0)
+		gzread(gzf, pi, 26^6)
+		gzclose(gzf)
+
+		solver_file_name_ngrams="Bonus Grams [1.2GB mem]"
+		ot=str(solver_file_name_ngrams)+lb
+		ot+="--------------------------------------------------------"+lb
+		ot+="Loading progress: 75.0%"
+		if loadngrams_showmsg=1 then ui_editbox_settext(output_text,ot)
+
+		gzf=gzopen(basedir+"\N-grams\Positional\6-lastgramsb40.txt.zst","rb")
+		pi=@lg6(0,0,0,0,0,0)
+		gzread(gzf, pi, 26^6)
+		gzclose(gzf)
+
+		solver_file_name_ngrams="Bonus Grams [1.2GB mem]"
+		ot=str(solver_file_name_ngrams)+lb
+		ot+="--------------------------------------------------------"+lb
+		ot+="Loading progress: 100.0%"
+		if loadngrams_showmsg=1 then ui_editbox_settext(output_text,ot)
+
 	end if
 	
 	'word n-grams 
 	'----------------------------------------------------------------------------------
 	if firststart=1 and solvesub_wordgrams_enabled=1 then
-		
+
+		fs=allocate(buffer)
 		dim as integer wmax=65535
 		redim wl(wmax,50)
 		redim wlptr(2^32)
@@ -29295,6 +29438,9 @@ sub thread_load_ngrams(byval none as any ptr)
 		end if
 		k=0
 		solver_file_name_ngrams="2-wordgram File [4GB mem]"
+		
+'		gzread( gzf, pi, (wmax+1)^2 )
+					
 		total_items=((wmax+1)^2)-1
 		for i=0 to ((wmax+1)^2)-1
 			if k=0 then
@@ -29311,30 +29457,6 @@ sub thread_load_ngrams(byval none as any ptr)
 		next i
 		gzclose(gzf)
 		
-		'redim wl3(wmax,wmax,wmax)
-		'dim as string word_file=basedir+"\N-grams\Words\3-word_grams_english_jarlve_reddit_2k.txt"
-		'pi=@wl3(0,0,0)
-		'gzf=gzopen(word_file,"rb")
-		'k=0
-		'for i=0 to ((wmax+1)^3)-1
-		'	if k=0 then
-		'		bl=0
-		'		k=buffer
-		'		gzread(gzf,fd,buffer)
-		'	end if
-		'	k-=1 'byte
-		'	j=fd[bl]
-		'	bl+=1
-		'	pi[i]=j
-		'next i
-		'gzclose(gzf)
-		
-		'redim g6w(25,25,25,25,25,25)
-		'g6w(asc("B")-65,asc("E")-65,asc("C")-65,asc("A")-65,asc("U")-65,asc("S")-65)=58
-		'open basedir+"\N-grams\Words\test.txt" for binary as #1
-		'put #1,,g6w() 'doesn't work for files > 3GB (FreeBASIC bug)
-		'close #1
-		
 		if solvesub_7gwordgrams=0 then
 			redim g6w(25,25,25,25,25,25)
 			ps=@g6w(0,0,0,0,0,0)
@@ -29343,21 +29465,26 @@ sub thread_load_ngrams(byval none as any ptr)
 '			gzf=gzopen(basedir+"\N-grams\Words\6gram-to-1word-600M-line-reddit2020-beijinghouse1_clean_test2.txt.zst","rb")
 			k=0
 			solver_file_name_ngrams="Word Discrimination File [600MB mem]"
-			total_items=(26^6)-1
-			for i=0 to (26^6)-1
-				if k=0 then
-					bl=0
-					k=buffer
-					curr_items=i
-					#include "ngram_loading_progress.bi"
-					gzread(gzf,fs,buffer)
-				end if
-				k-=2 'short
-				j=fs[bl]
-				bl+=1
-				ps[i]=j
-				'if j<65536 then ps[i]=j else beep
-			next i
+			ot=str(solver_file_name_ngrams)+lb
+			ot+="--------------------------------------------------------"+lb
+			ot+="Loading progress: 50.0%"
+			if loadngrams_showmsg=1 then ui_editbox_settext(output_text,ot)
+			gzread( gzf, ps, 26^6 * 2 )
+		
+'			total_items=(26^6)-1
+'			for i=0 to (26^6)-1
+'				if k=0 then
+'					bl=0
+'					k=buffer
+'					curr_items=i
+'					#include "ngram_loading_progress.bi"
+'					gzread(gzf,fs,buffer)
+'				end if
+'				k-=2 'short
+'				j=fs[bl]
+'				bl+=1
+'				ps[i]=j
+'			next i
 			gzclose(gzf)
 		else
 			redim g7w(25,25,25,25,25,25,25)
@@ -29379,16 +29506,15 @@ sub thread_load_ngrams(byval none as any ptr)
 				j=fs[bl]
 				bl+=1
 				ps[i]=j
-				'if j<65536 then ps[i]=j else beep
 			next i
 			gzclose(gzf)
 		end if
-		
-		firststart=0
+
+		deallocate(fs)
 		
 	end if
 	'----------------------------------------------------------------------------------
-
+	
 	solver_file_name_ngrams=right(file_name_ngrams,len(file_name_ngrams)-instrrev(file_name_ngrams,"\"))
 
 	ngrams_inmem(ngram_size)=1
@@ -29650,6 +29776,43 @@ sub thread_load_ngrams(byval none as any ptr)
 							#include "ngram_loading_progress.bi"
 						wend
 					wend
+
+'				elseif fileformat = -2 then
+'					
+'					dim xx as string * 6
+'					while totalbytes=buffer
+'						extra_chars=buffer-bl
+'						for i=0 to extra_chars-1
+'							fd[i]=fd[bl+i]
+'						next i
+'						bl=0
+'						bytesread=gzread(gzf,fd+extra_chars,buffer-extra_chars)
+'						totalbytes=bytesread+extra_chars
+'						if totalbytes<buffer then last_read=1
+'						while ((not last_read) and (bl<(totalbytes-ngram_size-4))) or (last_read and (bl<totalbytes))
+'							'-----------------------------------------------------------------------------------------
+'							ic=0
+'							while (ic<ngram_size)
+'								xx[ic]=fd[bl+ic]:ic+=1
+'							wend
+'							ub=asc2num100(fd[bl+ic])+asc2num10(fd[bl+ic+1])+asc2num(fd[bl+ic+2])
+'							if ub>solvesub_ngramlogcutoff then
+'								if ub>highgram then highgram=ub
+'								if ub<ngram_lowval then ngram_lowval=ub
+'								if ub>ngram_highval then ngram_highval=ub
+'								ngram_values(ub)+=1
+'								map.put(xx,ub)
+'								ngram_count+=1
+'							end if
+'							'-----------------------------------------------------------------------------------------
+'							bl+=ngram_size+3
+'							curr_items+=ngram_size+3
+'							while bl<totalbytes and fd[bl]<32 'skip new lines
+'								bl+=1
+'							wend
+'							#include "ngram_loading_progress.bi"
+'						wend
+'					wend
 					
 				else 'binary
 					
@@ -29694,6 +29857,7 @@ sub thread_load_ngrams(byval none as any ptr)
 						redim bh4(0,0,0,0)
 						redim bh4(nm1,nm1,nm1,nm1)
 						pi2=@bh4(0,0,0,0)
+
 					'case 10
 					'	redim bh5(0,0,0,0,0)
 					'	redim bh5(nm1,nm1,nm1,nm1,nm1)
@@ -29721,6 +29885,7 @@ sub thread_load_ngrams(byval none as any ptr)
 				bl=buffer
 				fd=allocate(buffer)
 				gzf=gzopen(file_name_ngrams,"rb")
+				gzbuffer(gzf,8192*16) ' beijinghouse speed up reading with bigger internal zlib buffer
 				if ngram_maxtableindex>max_allowed_table_index then
 					ngram_mem=max_allowed_table_index*max_allowed_table_index
 					select case ngram_size
@@ -29743,10 +29908,13 @@ sub thread_load_ngrams(byval none as any ptr)
 				loadngramtimer=timer
 				dim as integer ind1,ind2
 				total_items=ngram_maxtableindex*ngram_maxtableindex
+				if max_allowed_table_index<ngram_maxtableindex then	' beijinghouse optimization
+					total_items=ngram_maxtableindex*max_allowed_table_index
+				end if
 				
 				k=0
 				h=0
-				for i=0 to total_items-1
+				for curr_items=0 to total_items-1
 					if k=0 then
 						bl=0
 						k=buffer
@@ -29756,23 +29924,32 @@ sub thread_load_ngrams(byval none as any ptr)
 					k-=1 'byte
 					j=fd[bl]
 					bl+=1
-					curr_items+=1
 					if ind1<max_allowed_table_index+1 andalso ind2<max_allowed_table_index+1 then e=1 else e=0
 					if j>solvesub_ngramlogcutoff andalso e=1 then
 						pi[h]=j
 						ngram_count+=1
-						if j>highgram then highgram=j
+						if j>highgram then highgram=j:ngram_highval=j
 						if j<ngram_lowval then ngram_lowval=j
-						if j>ngram_highval then ngram_highval=j
 						ngram_values(j)+=1
 					end if
 					if e=1 then h+=1
 					ind2+=1
+'					if ind2>max_allowed_table_index then		' beijinghouse optimization (skip parts where e=0)
+'						gzseek(gzf,ngram_maxtableindex-max_allowed_table_index,SEEK_CUR)
+'						if ngram_maxtableindex-max_allowed_table_index >= k then
+'							k = 0
+'							ind2 += ngram_maxtableindex-max_allowed_table_index
+'						else
+'							k -= ngram_maxtableindex-max_allowed_table_index
+'							bl += ngram_maxtableindex-max_allowed_table_index
+'							ind2 += ngram_maxtableindex-max_allowed_table_index
+'						end if							
+'					end if
 					if ind2=ngram_maxtableindex+1 then
 						ind2=0
 						ind1+=1
 					end if
-				next i
+				next curr_items
 				
 				if ngram_maxtableindex>max_allowed_table_index then
 					trimmed_table_ratio=max_allowed_table_index/ngram_maxtableindex
@@ -29780,7 +29957,7 @@ sub thread_load_ngrams(byval none as any ptr)
 				else
 					trimmed_table_ratio=1
 				end if
-
+				
 
 			case 9 'beijinghouse crazy 9-gram systems
 
@@ -29788,7 +29965,6 @@ sub thread_load_ngrams(byval none as any ptr)
 				ngram_mem=0
 				redim g3keyguard(nm1,nm1,nm1)
 					
-				Finish79:								 ' label for 79 to jump here after 7gram is loaded
 				dim fileData3 As UByte Ptr			 ' temp storage for encoder table read-in
 				Dim tablecount(4,256) As UInteger ' temp storage for encoder scoring table sizes
 				Dim bigtablecount(26) As UInteger
@@ -29797,8 +29973,6 @@ sub thread_load_ngrams(byval none as any ptr)
 				Dim max_bigcount As UInteger
 				Dim buf_offset As Integer
 				Dim spin As UInteger
-				ReDim g51(nm1,nm1,nm1,nm1,nm1)
-				ReDim g52(nm1,nm1,nm1,nm1,nm1)
 				ReDim g53(nm1,nm1,nm1,nm1,nm1)
 				ReDim g54(nm1,nm1,nm1,nm1,nm1)
 				ngram_mem += 2*4*26^5  ' only count 2x 32bit arrays because 2 will be redimed to 0 depending on format
@@ -29808,164 +29982,77 @@ sub thread_load_ngrams(byval none as any ptr)
 				top_pivot = pivot + 26
 				Dim encoder_count As uinteger
 
-			 	Dim fileData As UByte Ptr
-				dim as uinteger bufferLen = 33554432    ' use 32MB buffer - 8gram headers > 1MB; 9-grams > 2.5MB; 10-grams > 5MB
+				dim as uinteger bufferLen = buffer '33554432    ' use 32MB buffer - 8gram headers > 1MB; 9-grams > 2.5MB; 10-grams > 5MB
 				dim as uinteger bytesRead = bufferLen  	'init value, reset when reading but needed for loop entry
 				dim as uinteger totalBytes = bufferLen 	'init value, reset when reading but needed for loop entry
 				buf_len_s = bufferLen	'init value, reset when reading but needed for loop entry
-				fileData = Allocate(bufferLen)
-				
-				'For spin = 0 To total_spins
+
 				While pivot < top_pivot
 					
-					If ninegramformat <> 9 Then
-						buf_len_s = 0
-						gzread( gzf, fileData, 4 )
-					
-						d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-						acu_len_s += 4
-					Else
-						d1 = (fileData3[0+buf_len_s] Shl 24) + (fileData3[1+buf_len_s] Shl 16) + (fileData3[2+buf_len_s] Shl 8) + fileData3[3+buf_len_s]
-						acu_len_s += 4
-						buf_len_s += 4
-					EndIf
+					buf_len_s = 0
+					gzread( gzf, fd, 4 )
+					d1 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
+					acu_len_s += 4
 					
 					If d1 = 0 Then ' if using double-sized indexes
-						If ninegramformat <> 9 Then
-							ninegramformat = 3
-							gzread( gzf, fileData, 4 )
-							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-							acu_len_s += 4
-						endif
-					ElseIf fileData[1+buf_len_s] = 6 Then ' using folded indexes
-						If ninegramformat <> 9 Then
-							ninegramformat = 8
-							ninegram_quartile = fileData[2+buf_len_s]
-							highgram = ninegram_quartile
-							ninegram_offset = fileData[3+buf_len_s]
-							gzread( gzf, fileData, 4 )
-							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-							acu_len_s += 4
+						ninegramformat = 3
+						gzread( gzf, fd, 4 )
+						d1 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
+						acu_len_s += 4
+					ElseIf fd[1+buf_len_s] = 6 Then ' using folded indexes
+						ninegramformat = 8
+						ninegram_quartile = fd[2+buf_len_s]
+						highgram = ninegram_quartile
+						ninegram_offset = fd[3+buf_len_s]
+						gzread( gzf, fd, 4 )
+						d1 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
+						acu_len_s += 4
 '								ninegram_offset = d1 shr 1 ' reuse this variable since unused in this format and need to know where half point is
-							ninegram_half(pivot-65) = d1 shr 1
-						endif
-					ElseIf fileData[1+buf_len_s] = 1 Then ' using folded indexes
-						If ninegramformat <> 9 Then
-							ninegramformat = 4
-							ninegram_quartile = fileData[2+buf_len_s]
-							highgram = ninegram_quartile
-							ninegram_offset = fileData[3+buf_len_s]
-							gzread( gzf, fileData, 4 )
-							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-							acu_len_s += 4	
-							gzread( gzf, fileData, 4 )
-							d3 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-							acu_len_s += 4
-						endif
-					ElseIf fileData[1+buf_len_s] = 3 Then ' using folded indexes with bitshifted keys in 2 low order score bits
-						If ninegramformat <> 9 Then
-							ninegramformat = 6
-							ninegram_quartile = fileData[2+buf_len_s]
-							highgram = ninegram_quartile
-							ninegram_offset = fileData[3+buf_len_s]
-							gzread( gzf, fileData, 4 )
-							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-							acu_len_s += 4	
-							gzread( gzf, fileData, 4 )
-							d3 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-							acu_len_s += 4
-						endif
-					ElseIf fileData[1+buf_len_s] = 2 Then ' using triple folded indexes
-						If ninegramformat <> 9 Then
-							ninegramformat = 5
-							ninegram_quartile = fileData[2+buf_len_s]
-							highgram = ninegram_quartile
-							ninegram_offset = fileData[3+buf_len_s]
-							gzread( gzf, fileData, 4 )
-							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-							acu_len_s += 4	
-							gzread( gzf, fileData, 4 )
-							d3 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-							acu_len_s += 4
-							gzread( gzf, fileData, 4 )
-							d5 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-							acu_len_s += 4
-						endif
-'					ElseIf d1 = 1 Then ' using mid-trigrams
-'						If ninegramformat <> 9 Then
-'								
-'							ninegramformat = 9
-'							gzread( gzf, fileData, 4 )
-'							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-'							acu_len_s += 4
-'							
-'							ReDim gx9_trigrams(j,j,j)
-'							ReDim gx9_first(d1,d1)
-'							ReDim gx9_last(d1,d1)
-'							top_pivot = d1 + 65 ' TODO REMOVE -400 weird stuff -1 for 0 indexed outer loop
-'							
-'							gzread( gzf, fileData, d1*3 + 26*4 + 4 ) ' read in valid trigrams + total size table + first table dimension
-'							
-'							encoder_count = 1
-'							While encoder_count <= d1		' save valid trigram indexes
-'								gx9_trigrams(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = encoder_count
-'								If fileData[1+buf_len_s] > fileData[1+buf_len_s-3] Then ' puts 1 in 
-'									bigtablejumps(jump_location) = encoder_count
-'									jump_location += 1
-'								EndIf
-'								acu_len_s += 3
-'								buf_len_s += 3
-'								encoder_count += 1
-'							wend
-'							
-'							max_bigcount = 0	
-'							For i = 1 To 26 Step 1
-'								bigtablecount(i) = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-'								If bigtablecount(i) > max_bigcount Then
-'				               max_bigcount = bigtablecount(i)	
-'								EndIf
-'								acu_len_s += 4
-'								buf_len_s += 4
-'							Next i
-'							
-'							jump_location = 1
-'							' use fileData3 for all reading; pull in full mid-letter chucks for midtrigrams
-'							' cause otherwise painfully slow
-'							fileData3 = Allocate(max_bigcount)
-'							
-'							' read in 1st dimension of encoder table to kick off just like other formats
-'							
-'							d1 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-'							acu_len_s += 4
-'							
-'						endif
-						
+						ninegram_half(pivot-65) = d1 shr 1
+					ElseIf fd[1+buf_len_s] = 1 Then ' using folded indexes
+						ninegramformat = 4
+						ninegram_quartile = fd[2+buf_len_s]
+						highgram = ninegram_quartile
+						ninegram_offset = fd[3+buf_len_s]
+						gzread( gzf, fd, 4 )
+						d1 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
+						acu_len_s += 4	
+						gzread( gzf, fd, 4 )
+						d3 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
+						acu_len_s += 4
+					ElseIf fd[1+buf_len_s] = 3 Then ' using folded indexes with bitshifted keys in 2 low order score bits
+						ninegramformat = 6
+						ninegram_quartile = fd[2+buf_len_s]
+						highgram = ninegram_quartile
+						ninegram_offset = fd[3+buf_len_s]
+						gzread( gzf, fd, 4 )
+						d1 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
+						acu_len_s += 4	
+						gzread( gzf, fd, 4 )
+						d3 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
+						acu_len_s += 4
+					ElseIf fd[1+buf_len_s] = 2 Then ' using triple folded indexes
+						ninegramformat = 5
+						ninegram_quartile = fd[2+buf_len_s]
+						highgram = ninegram_quartile
+						ninegram_offset = fd[3+buf_len_s]
+						gzread( gzf, fd, 4 )
+						d1 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
+						acu_len_s += 4	
+						gzread( gzf, fd, 4 )
+						d3 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
+						acu_len_s += 4
+						gzread( gzf, fd, 4 )
+						d5 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
+						acu_len_s += 4
 					endif
 					
-					If ninegramformat = 9 Then
-						If (pivot - 64) = bigtablejumps(jump_location) Then
-							buf_len_s = 0
-							gzread ( gzf, fileData3, bigtablecount(jump_location) )
-							jump_location += 1
-						EndIf
-					'	gzread( gzf, fileData, d1*3 )							
-					Else
-						gzread( gzf, fileData, d1*4 )								
-					EndIf
+					gzread( gzf, fd, d1*4 )								
 					
 					encoder_count = 1
 					While encoder_count <= d1
-						If ninegramformat = 0 Then
-							g51(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]),  alpharev(fileData[3+buf_len_s]), alpharev(pivot)) = encoder_count
-							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
-						ElseIf ninegramformat = 3 Orelse ninegramformat = 4 orelse ninegramformat = 5 orelse ninegramformat = 6 orelse ninegramformat = 8 then
-							g53(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]),  alpharev(fileData[3+buf_len_s]), alpharev(pivot)) = encoder_count
-							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
-'						Else
-'							gx9_first(gx9_trigrams(alpharev(fileData3[0+buf_len_s]), alpharev(fileData3[1+buf_len_s]), alpharev(fileData3[2+buf_len_s])),pivot-64) = encoder_count
-'							acu_len_s -= 1  ' correct jump forward below
-'							buf_len_s -= 1
-						EndIf
+						g53(alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s]),  alpharev(fd[3+buf_len_s]), alpharev(pivot)) = encoder_count
+						g3keyguard(alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s])) = 1
 						acu_len_s += 4
 						buf_len_s += 4
 						encoder_count += 1
@@ -29975,15 +30062,15 @@ sub thread_load_ngrams(byval none as any ptr)
 					If ninegramformat = 4 orelse ninegramformat=5 orelse ninegramformat=6 then		
 						buf_len_s = 0
 
-						gzread( gzf, fileData, d3*4 )
+						gzread( gzf, fd, d3*4 )
 						
 						encoder_count = 1048576 + 1 ' put backup grams arbitrarily higher in encoding count
 						While encoder_count <= d3 + 1048576 ' 5000000 1048576 = &H100000
-							g53(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]),  alpharev(fileData[3+buf_len_s]), alpharev(pivot)) = encoder_count
+							g53(alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s]),  alpharev(fd[3+buf_len_s]), alpharev(pivot)) = encoder_count
 							acu_len_s += 4
 							buf_len_s += 4
 							encoder_count += 1
-							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+							g3keyguard(alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s])) = 1
 						Wend
 					endif
 
@@ -29991,91 +30078,70 @@ sub thread_load_ngrams(byval none as any ptr)
 					If ninegramformat = 5 Then		
 						buf_len_s = 0
 
-						gzread( gzf, fileData, d5*4 )
+						gzread( gzf, fd, d5*4 )
 						
 						encoder_count = 16777216 + 1 '10000001 ' put backup grams arbitrarily higher in encoding count
 						While encoder_count <= d5 + 16777216 '10000000
-							g53(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]),  alpharev(fileData[3+buf_len_s]), alpharev(pivot)) = encoder_count
+							g53(alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s]),  alpharev(fd[3+buf_len_s]), alpharev(pivot)) = encoder_count
 							acu_len_s += 4
 							buf_len_s += 4
 							encoder_count += 1
-							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+							g3keyguard(alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s])) = 1
 						Wend
 					endif
 					
-					If ninegramformat <> 9 Then		
+					buf_len_s = 0
+					gzread( gzf, fd, 4 )
+				
+					d2 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
+					acu_len_s += 4
+
+					If ninegramformat = 4 orelse ninegramformat = 5 orelse ninegramformat=6 then
 						buf_len_s = 0
-						gzread( gzf, fileData, 4 )
+						gzread( gzf, fd, 4 )
 					
-						d2 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+						d4 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
 						acu_len_s += 4
+					endif
 
-						If ninegramformat = 4 orelse ninegramformat = 5 orelse ninegramformat=6 then
-							buf_len_s = 0
-							gzread( gzf, fileData, 4 )
-						
-							d4 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-							acu_len_s += 4
-						endif
-
-						If ninegramformat = 5 Then
-							buf_len_s = 0
-							gzread( gzf, fileData, 4 )
-						
-							d6 = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
-							acu_len_s += 4
-						endif
-						
-					Else
-						d2 = (fileData3[0+buf_len_s] Shl 24) + (fileData3[1+buf_len_s] Shl 16) + (fileData3[2+buf_len_s] Shl 8) + fileData3[3+buf_len_s]
+					If ninegramformat = 5 Then
+						buf_len_s = 0
+						gzread( gzf, fd, 4 )
+					
+						d6 = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
 						acu_len_s += 4
-					EndIf
+					endif
 					
-					
-					If ninegramformat <> 9 Then
-					'	gzread( gzf, fileData, d2*3 + 255*4 )							
-					'Else
-						If ninegramformat = 4 Then
-							gzread( gzf, fileData, d2*4 + d4*4 + 255*4 + 255*4*3 )	
-						elseif ninegramformat = 5 then
-							gzread( gzf, fileData, d2*4 + d4*4 + d6*4 + 255*4 )
-						elseif ninegramformat=6 then
-							gzread( gzf, fileData, d2*4 + d4*4 + 255*4 )
-						elseif ninegramformat=8 then
-							gzread( gzf, fileData, d2*4 + 255*4*2 )
-						else
-							gzread( gzf, fileData, d2*4 + 255*4 + 255*4*ninegramformat )	
-					   endif							
-					EndIf		
+					If ninegramformat = 4 Then
+						gzread( gzf, fd, d2*4 + d4*4 + 255*4 + 255*4*3 )	
+					elseif ninegramformat = 5 then
+						gzread( gzf, fd, d2*4 + d4*4 + d6*4 + 255*4 )
+					elseif ninegramformat=6 then
+						gzread( gzf, fd, d2*4 + d4*4 + 255*4 )
+					elseif ninegramformat=8 then
+						gzread( gzf, fd, d2*4 + 255*4*2 )
+					else
+						gzread( gzf, fd, d2*4 + 255*4 + 255*4*ninegramformat )	
+				   endif							
 					
 					encoder_count = 1
 					While encoder_count <= d2
-						If ninegramformat = 0 Then
-							g52(alpharev(pivot), alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]), alpharev(fileData[3+buf_len_s])) = encoder_count
-							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
-						ElseIf ninegramformat = 3 Orelse ninegramformat = 4 orelse ninegramformat = 5 orelse ninegramformat = 6 orelse ninegramformat = 8 then
-							g54(alpharev(pivot), alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]), alpharev(fileData[3+buf_len_s])) = encoder_count
-							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
-'						Else
-'							gx9_last(pivot-64,gx9_trigrams(alpharev(fileData3[0+buf_len_s]), alpharev(fileData3[1+buf_len_s]), alpharev(fileData3[2+buf_len_s]))) = encoder_count
-'							acu_len_s -= 1  ' correct jump forward below
-'							buf_len_s -= 1
-						EndIf
+						g54(alpharev(pivot), alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s]), alpharev(fd[3+buf_len_s])) = encoder_count
+						g3keyguard(alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s])) = 1
 						acu_len_s += 4
 						buf_len_s += 4
 						encoder_count += 1
 					wend
 
 					' load backup grams for folded format
-					If ninegramformat = 4 orelse ninegramformat = 5 orelse ninegramformat = 6 Then
-								
+					If ninegramformat = 4 orelse ninegramformat = 5 orelse ninegramformat = 6 then
 						encoder_count = 1048576 + 1 ' put backup grams arbitrarily higher in encoding count
 						While encoder_count <= d4 + 1048576 '5000000
-							g54(alpharev(pivot), alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]), alpharev(fileData[3+buf_len_s])) = encoder_count
+							g54(alpharev(pivot), alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s]), alpharev(fd[3+buf_len_s])) = encoder_count
 							acu_len_s += 4
 							buf_len_s += 4
 							encoder_count += 1
-							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+							g3keyguard(alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s])) = 1
 						Wend
 					endif
 
@@ -30084,11 +30150,11 @@ sub thread_load_ngrams(byval none as any ptr)
 								
 						encoder_count = 16777216 + 1 ' put backup grams arbitrarily higher in encoding count
 						While encoder_count <= d6 + 16777216
-							g54(alpharev(pivot), alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s]), alpharev(fileData[3+buf_len_s])) = encoder_count
+							g54(alpharev(pivot), alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s]), alpharev(fd[3+buf_len_s])) = encoder_count
 							acu_len_s += 4
 							buf_len_s += 4
 							encoder_count += 1
-							g3keyguard(alpharev(fileData[0+buf_len_s]), alpharev(fileData[1+buf_len_s]), alpharev(fileData[2+buf_len_s])) = 1
+							g3keyguard(alpharev(fd[0+buf_len_s]), alpharev(fd[1+buf_len_s]), alpharev(fd[2+buf_len_s])) = 1
 						Wend
 					endif
 					
@@ -30107,7 +30173,7 @@ sub thread_load_ngrams(byval none as any ptr)
 							If ninegramformat = 9 Then
 								tablecount(j,i) = (fileData3[0+buf_len_s] Shl 24) + (fileData3[1+buf_len_s] Shl 16) + (fileData3[2+buf_len_s] Shl 8) + fileData3[3+buf_len_s]
 							Else
-								tablecount(j,i) = (fileData[0+buf_len_s] Shl 24) + (fileData[1+buf_len_s] Shl 16) + (fileData[2+buf_len_s] Shl 8) + fileData[3+buf_len_s]
+								tablecount(j,i) = (fd[0+buf_len_s] Shl 24) + (fd[1+buf_len_s] Shl 16) + (fd[2+buf_len_s] Shl 8) + fd[3+buf_len_s]
 							EndIf
 							If tablecount(j,i) > max_count Then
 			               max_count = tablecount(j,i)	
@@ -30128,40 +30194,38 @@ sub thread_load_ngrams(byval none as any ptr)
 					
 					
 					Select case pivot-65
-						Case 0: redim gxa9(d1,d2)
-						Case 1: redim gxb9(d1,d2)
-						Case 2: redim gxc9(d1,d2)
-						Case 3: redim gxd9(d1,d2)
-						Case 4: redim gxe9(d1,d2)
-						Case 5: redim gxf9(d1,d2)
-						Case 6: redim gxg9(d1,d2)
-						Case 7: redim gxh9(d1,d2)
-						Case 8: redim gxi9(d1,d2)
-						Case 9: redim gxj9(d1,d2)
-						Case 10:redim gxk9(d1,d2)
-						Case 11:redim gxl9(d1,d2)
-						Case 12:redim gxm9(d1,d2)
-						Case 13:redim gxn9(d1,d2)
-						Case 14:redim gxo9(d1,d2)
-						Case 15:redim gxp9(d1,d2)
-						Case 16:redim gxq9(d1,d2)
-						Case 17:redim gxr9(d1,d2)
-						Case 18:redim gxs9(d1,d2)
-						Case 19:redim gxt9(d1,d2)
-						Case 20:redim gxu9(d1,d2)
-						Case 21:redim gxv9(d1,d2)
-						Case 22:redim gxw9(d1,d2)
-						Case 23:redim gxx9(d1,d2)
-						Case 24:redim gxy9(d1,d2)
-						Case 25:redim gxz9(d1,d2)
+						Case 0: redim gxa9(1 to d1,1 to d2)
+						Case 1: redim gxb9(1 to d1,1 to d2)
+						Case 2: redim gxc9(1 to d1,1 to d2)
+						Case 3: redim gxd9(1 to d1,1 to d2)
+						Case 4: redim gxe9(1 to d1,1 to d2)
+						Case 5: redim gxf9(1 to d1,1 to d2)
+						Case 6: redim gxg9(1 to d1,1 to d2)
+						Case 7: redim gxh9(1 to d1,1 to d2)
+						Case 8: redim gxi9(1 to d1,1 to d2)
+						Case 9: redim gxj9(1 to d1,1 to d2)
+						Case 10:redim gxk9(1 to d1,1 to d2)
+						Case 11:redim gxl9(1 to d1,1 to d2)
+						Case 12:redim gxm9(1 to d1,1 to d2)
+						Case 13:redim gxn9(1 to d1,1 to d2)
+						Case 14:redim gxo9(1 to d1,1 to d2)
+						Case 15:redim gxp9(1 to d1,1 to d2)
+						Case 16:redim gxq9(1 to d1,1 to d2)
+						Case 17:redim gxr9(1 to d1,1 to d2)
+						Case 18:redim gxs9(1 to d1,1 to d2)
+						Case 19:redim gxt9(1 to d1,1 to d2)
+						Case 20:redim gxu9(1 to d1,1 to d2)
+						Case 21:redim gxv9(1 to d1,1 to d2)
+						Case 22:redim gxw9(1 to d1,1 to d2)
+						Case 23:redim gxx9(1 to d1,1 to d2)
+						Case 24:redim gxy9(1 to d1,1 to d2)
+						Case 25:redim gxz9(1 to d1,1 to d2)
 					End Select
 
 					
 					ngram_mem += d1*d2
 					
-					If ninegramformat <> 9 Then
-						fileData3 = Allocate(max_count*4)
-					EndIf
+					fileData3 = Allocate(max_count*4)
 					
 					total_items = filelen1
 					
@@ -30224,6 +30288,10 @@ sub thread_load_ngrams(byval none as any ptr)
 										Case 25:gxz9(x1,x2) = i
 									End Select
 									
+									if i<ngram_lowval then ngram_lowval=i
+									if i>ngram_highval then ngram_highval=i
+									ngram_values(i)+=1
+						
 									ngram_count+=1
 
 									if ninegramformat = 8 and (i > 15) and ( (i and &HF) > 0) then ' since 4-bit format, if both halves have data, count twice
@@ -30244,23 +30312,13 @@ sub thread_load_ngrams(byval none as any ptr)
 						Next i 
 					Next j
 					
-					If ninegramformat <> 9 Then
-						DeAllocate(fileData3)
-					EndIf
+					DeAllocate(fileData3)
 					
 					'-----
 					
 					pivot += 1
 					
 				Wend
-									
-				If ninegramformat = 0 Then
-					ReDim g53(0,0,0,0,0)
-					ReDim g54(0,0,0,0,0)
-				Else
-					ReDim g51(0,0,0,0,0)
-					ReDim g52(0,0,0,0,0)
-				endif
 
 
 		end select
@@ -30269,6 +30327,27 @@ sub thread_load_ngrams(byval none as any ptr)
 	
 	gzclose(gzf)
 	deallocate(fd)
+	
+	
+
+	
+	if firststart=1 then 'load n-grams that add spaces to output
+		pos_file=basedir+"\N-grams\Spaces\5-grams_positions"
+		space_file=basedir+"\N-grams\Spaces\5-grams_english+spaces_jarlve_reddit.txt.zst"
+		if fileexists(pos_file)=-1 andalso fileexists(space_file)=-1 then
+			pi=@g5p(0,0,0,0,0)
+			gzf=gzopen(pos_file,"rb")
+			gzread( gzf, pi, (25+1)^5 )
+			gzclose(gzf)
+			pi=@g5s(0,0,0,0,0)
+			gzf=gzopen(space_file,"rb")
+			gzread( gzf, pi, (26+1)^5 )
+			gzclose(gzf)
+			addspaces_ngrams=1
+		end if
+		firststart=0
+	end if
+
 	
 	ngram_avgval=0
 	distinct_values=0
@@ -32193,13 +32272,13 @@ sub bhdecrypt_234567810g(byval tn_ptr as any ptr)
 	dim as byte cribkey(constcip)
 	dim as double enttable(constent)
 	dim as byte sr(10),lnb(0)
-	
+	dim as ushort wordgrams(constcip)
+	dim as ushort wordgrams2(constcip)
+				
 	dim as short maps(constcip)
 	dim as short maps2(constcip)
 	dim as integer mi,mj
-	
-	dim as ubyte nwor(constcip)
-	
+		
 	do 'wait for input
 		
 		sleep twait
@@ -32253,12 +32332,14 @@ sub bhdecrypt_234567810g(byval tn_ptr as any ptr)
 				
 				dim as short map1(s,frcmax)
 				dim as short map2(s,frcmax*ngram_size)
+				dim as short wordmap2(s,frcmax*wngs)
 				dim as short map2b(s,frcmax*ngram_size)
 				
 				for i=1 to s
 					frc(i)=0
 					map1(i,0)=0
 					map2(i,0)=0
+					wordmap2(i,0)=0
 					maps(i)=i
 					mape2(i)=0
 				next i
@@ -32300,7 +32381,26 @@ sub bhdecrypt_234567810g(byval tn_ptr as any ptr)
 						end if
 					next j
 				next i
-				
+
+				for i=1 to l
+					for j=0 to wngs-1
+						h=i-(wngs-1)
+						if h+j>0 andalso h+j<l-(wngs-2) then
+							e=0
+							for k=1 to wordmap2(nba(i),0)
+								if wordmap2(nba(i),k)=h+j then
+									e=1
+									exit for
+								end if
+							next k
+							if e=0 then
+								wordmap2(nba(i),0)+=1
+								wordmap2(nba(i),wordmap2(nba(i),0))=h+j
+							end if
+						end if
+					next j
+				next i
+
 				start_temp=(temp1/4.61538)/((s/l)/log(l)) 'temp1/(s/l)
 				start_temp/=m_ioc2(nba(),l,s,2)^0.75
 				curr_temp=start_temp
@@ -32310,7 +32410,8 @@ sub bhdecrypt_234567810g(byval tn_ptr as any ptr)
 				onesixl=1.7/l
 				best_score=0
 				
-				solution_timer=timer
+				' beijinghouse: allow nearly instant output of first pass
+				solution_timer=timer '-solvesub_solutionreleasetimer
 				
 				for lv=1 to lvmax
 					
@@ -32365,6 +32466,16 @@ sub bhdecrypt_234567810g(byval tn_ptr as any ptr)
 							new_ngram_score=0
 							
 							#include "solver_ngram_init.bi"
+
+							for i=1 to l-(wngs-1)
+									if solvesub_7gwordgrams=0 then
+										wordgrams(i)=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
+									else
+										wordgrams(i)=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
+									end if
+							next i
+
+							#include "solver_bonusgram_init.bi"
 							
 							mc=5
 							mc_minus=(mc-1)/iterations
@@ -32389,7 +32500,7 @@ sub bhdecrypt_234567810g(byval tn_ptr as any ptr)
 								d=4*state shr 31
 								
 								#include "solver_pickletter.bi"
-								
+																
 								for i=1 to map1(curr_symbol,0)
 									sol(map1(curr_symbol,i))=new_letter
 								next i
@@ -32399,115 +32510,31 @@ sub bhdecrypt_234567810g(byval tn_ptr as any ptr)
 								entropy+=enttable(frq(new_letter)+mape2(curr_symbol))-enttable(frq(new_letter))
 								
 								old_ngram_score=new_ngram_score
-								
+
+								#include "solver_bonusgram_main.bi"
+
 								#include "solver_ngram_main.bi"
 								#include "solver_fastent.bi"
 
-								if solvesub_wordgrams_enabled=1 then
-									'word gram score addon:
-									'----------------------
-									'idea: somehow allow a exception for words that end with ING,LY,etc
-									'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
-									
-									dim as integer words=0,nwlen=0,wordlen=0,wngs=7
-									if solvesub_7gwordgrams=0 then
-										wngs=6
-									end if		
-									for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
-										sol(i)=sol(i-l)
-									next i
-									for i=1 to l 'convert sol array to words
-										if solvesub_7gwordgrams=0 then
-											j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
-										else
-											j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
-										end if
-										if j>0 then
-											'select case nwlen
-											'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'end select
-											if nwlen>0 then
-												words+=1
-												wor(words)=0
-												'wordlen+=nwlen
-												nwlen=0
-											end if
-											if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
-												e=1
-												'if wl(j,0)>=l-(i-1) then
-													for k=0 to wl(j,0)-1
-														if wl(j,k+1)<>sol(i+k)+65 then
-															e=0
-															exit for
-														end if
-													next k
-												'end if
-												if e=1 then
-													words+=1
-													wor(words)=j
-													'wordlen+=wl(j,0)
-													i+=wl(j,0)-1 'skip other letters of the found word
-												else
-													'nwlen+=1
-													'nwor(nwlen)=sol(i)
-													words+=1
-													wor(words)=j
-													'wordlen+=wl(j,0)
-													i+=wl(j,0)-1 'skip other letters of the found word
-												end if
-											else
-												words+=1
-												if wl(j,0)>l-(i-1) then wor(words)=0 else wor(words)=j
-												'wordlen+=wl(j,0)
-												i+=wl(j,0)-1 'skip other letters of the found word
-											end if
-										else
-											nwlen+=1
-											nwor(nwlen)=sol(i)
-										end if
-									next i
-									'select case nwlen
-									'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'end select
-									if nwlen>0 then
-										words+=1
-										wor(words)=0
-										'wordlen+=nwlen
-										nwlen=0
-									end if
-									if words>1 then
-										dim as double wscore=0
-										for i=1 to words-1 'score words with word 2-grams
-											wscore+=wl2(wor(i),wor(i+1))
-										next i
-							'			wscore+=wl2(wor(i),wor(1)) 'wrap around
-										if wscore>0 then
-											wscore/=words-1
-											'wscore/=1+(l/words)/solvesub_seqweight
-											new_score*=1+solvesub_wgramfactor*(wscore/255.0)/8.0 'multiplicative
-											'new_score+=wscore*solvesub_matchweight 'additive
-										end if
-									end if
-								end if 	
-								'---------------------------------------------------------------------
+								#include "solver_wordscore.bi"
 								
+								new_score*=1+solvesub_wgramfactor*(wscore/255.0)/(14.0-ngram_size) 'multiplicative
+
+
 								if new_score>old_score then
 									
 									accept=1
+									
+									#include "solver_bonusgram_tail.bi"
+
 									frq(old_letter)-=mape2(curr_symbol)
 									frq(new_letter)+=mape2(curr_symbol)
 									stl(curr_symbol)=new_letter
-									
+
+									for i=1 to l-(wngs-1) 'save the new values since they worked
+										wordgrams(i)=wordgrams2(i)
+									next i
+
 									#include "solver_ngram_tail.bi"
 									
 									old_score=new_score
@@ -32766,7 +32793,8 @@ sub bhdecrypt_higherorder_810g(byval tn_ptr as any ptr)
 				ngfal=ngf/al
 				onesixl=1.7/l
 				
-				solution_timer=timer
+				' beijinghouse: allow nearly instant output of first pass
+				solution_timer=timer-solvesub_solutionreleasetimer
 				
 				best_score=0
 				for n=0 to ni	
@@ -33132,14 +33160,13 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 	dim as double enttable(constent)
 	dim as byte sr(10),lnb(0)
 	dim as integer rl(40)
+	dim as ushort wordgrams(constcip)
+	dim as ushort wordgrams2(constcip)
 	
 	dim as short maps(constcip)
 	dim as short maps2(constcip)
 	dim as integer mi,mj
-	
-	dim as ubyte nwor(constcip)
-	dim as double wscore
-	
+		
 	do 'wait for input
 		
 		sleep twait
@@ -33156,7 +33183,9 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 			next i
 			
 			select case ngram_size
-				case 8:tempdiv=3
+				case 8:tempdiv=2.25
+				case 9:tempdiv=2.25 'TODO: test if this is best once working
+'				case 8:tempdiv=3
 				'case 10:tempdiv=3
 			end select
 			
@@ -33191,6 +33220,7 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 				
 				dim as short map1(s,frcmax)
 				dim as short map2(s,frcmax*ngram_size)
+				dim as short wordmap2(s,frcmax*wngs)
 				dim as short map2b(s,frcmax*ngram_size)
 				
 				'bigram substitution stuff
@@ -33224,6 +33254,7 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 					frc(i)=0
 					map1(i,0)=0
 					map2(i,0)=0
+					wordmap2(i,0)=0
 					maps(i)=i
 					mape2(i)=0
 				next i
@@ -33265,7 +33296,26 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 						end if
 					next j
 				next i
-				
+
+				for i=1 to l
+					for j=0 to wngs-1
+						h=i-(wngs-1)
+						if h+j>0 andalso h+j<l-(wngs-2) then
+							e=0
+							for k=1 to wordmap2(nba(i),0)
+								if wordmap2(nba(i),k)=h+j then
+									e=1
+									exit for
+								end if
+							next k
+							if e=0 then
+								wordmap2(nba(i),0)+=1
+								wordmap2(nba(i),wordmap2(nba(i),0))=h+j
+							end if
+						end if
+					next j
+				next i
+
 				start_temp=(temp1/4.61538)/((s/l)/log(l))
 				start_temp/=m_ioc2(nba(),l,s,2)^0.75
 				curr_temp=start_temp
@@ -33276,7 +33326,8 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 				hi=1/highgram
 				best_score=0
 				
-				solution_timer=timer
+				' beijinghouse: allow nearly instant output of first pass
+				solution_timer=timer-solvesub_solutionreleasetimer
 				
 				for lv=1 to lvmax
 					
@@ -33389,7 +33440,7 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 										ngrams(i)=bh8(bh4(sol(i),sol(i+1),sol(i+2),sol(i+3)),bh4(sol(i+4),sol(i+5),sol(i+6),sol(i+7)))
 										new_ngram_score+=ngrams(i)
 									next i
-								case 8
+								case 9
 									for j=1 to al
 
 										If ninegramformat = 0 Then
@@ -33420,7 +33471,17 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 								'		new_ngram_score+=ngrams(i)
 								'	next i
 							end select
-							
+
+							for i=1 to l-(wngs-1)
+									if solvesub_7gwordgrams=0 then
+										wordgrams(i)=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
+									else
+										wordgrams(i)=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
+									end if
+							next i
+
+							#include "solver_bonusgram_init.bi"
+
 							mc=5
 							mc_minus=(mc-1)/iterations
 							
@@ -33479,114 +33540,19 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 									j=map2(curr_symbol,i)
 									new_ngram_score-=ngrams(j)
 								next i
-								
+
+								#include "solver_bonusgram_main.bi"
+
 								#include "solver_fastent_bh.bi"
 
-
-
-								if solvesub_wordgrams_enabled=1 then
-									'word gram score addon:
-									'----------------------
-									'idea: somehow allow a exception for words that end with ING,LY,etc
-									'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
-									
-									dim as integer words=0,nwlen=0,wordlen=0,wngs=7
-									if solvesub_7gwordgrams=0 then
-										wngs=6
-									end if		
-									for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
-										sol(i)=sol(i-l)
-									next i
-									for i=1 to l 'convert sol array to words
-										if solvesub_7gwordgrams=0 then
-											j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
-										else
-											j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
-										end if
-										if j>0 then
-											'select case nwlen
-											'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'end select
-											if nwlen>0 then
-												words+=1
-												wor(words)=0
-												'wordlen+=nwlen
-												nwlen=0
-											end if
-											if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
-												e=1
-												'if wl(j,0)>=l-(i-1) then
-													for k=0 to wl(j,0)-1
-														if wl(j,k+1)<>sol(i+k)+65 then
-															e=0
-															exit for
-														end if
-													next k
-												'end if
-												if e=1 then
-													words+=1
-													wor(words)=j
-													'wordlen+=wl(j,0)
-													i+=wl(j,0)-1 'skip other letters of the found word
-												else
-													'nwlen+=1
-													'nwor(nwlen)=sol(i)
-													words+=1
-													wor(words)=j
-													'wordlen+=wl(j,0)
-													i+=wl(j,0)-1 'skip other letters of the found word
-												end if
-											else
-												words+=1
-												if wl(j,0)>l-(i-1) then wor(words)=0 else wor(words)=j
-												'wordlen+=wl(j,0)
-												i+=wl(j,0)-1 'skip other letters of the found word
-											end if
-										else
-											nwlen+=1
-											nwor(nwlen)=sol(i)
-										end if
-									next i
-									'select case nwlen
-									'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'end select
-									if nwlen>0 then
-										words+=1
-										wor(words)=0
-										'wordlen+=nwlen
-										nwlen=0
-									end if
-									if words>1 then
-										wscore = 0
-										for i=1 to words-1 'score words with word 2-grams
-											wscore+=wl2(wor(i),wor(i+1))
-										next i
-			'							wscore+=wl2(wor(i),wor(1)) 'wrap around
-										if wscore>0 then
-											wscore/=words-1
-											'wscore/=1+(l/words)/solvesub_seqweight
-					''' do below						new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
-											'new_score+=wscore*solvesub_matchweight 'additive
-										end if
-									end if
-								end if
+								#include "solver_wordscore.bi"
 
 
 								dim as double hw=(1+hp/solvesub_bigramhomwdiv) 'bigram substitution stuff
 								if solvesub_bigramhomwdiv=0 then hw=1
 
 								' works by adding in upcoming wordscore to test for score needed
-								score_needed=(old_score*hw/ent2/ngfal/(1+solvesub_wgramfactor*(wscore/255.0)/8.0)-new_ngram_score)*hi
+								score_needed=(old_score*hw/ent2/ngfal/(1+solvesub_wgramfactor*(wscore/255.0)/(20.0-ngram_size))-new_ngram_score)*hi
 
 								if num_ngrams>score_needed then 'beijinghouse score_needed optimization
 									for i=1 to map1(curr_symbol,0)
@@ -33659,6 +33625,8 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 								'---------------------------------------------------------------------
 								
 								if score_needed<0 then
+
+									#include "solver_bonusgram_tail.bi"
 									
 									'bigram substitution stuff
 									'-----------------------------------------
@@ -33713,11 +33681,15 @@ sub bhdecrypt_bigram_810g(byval tn_ptr as any ptr)
 									'			if h>i then new_ngram_score+=ngrams(j)
 									'		next h
 									end select
+
+									for i=1 to l-(wngs-1) 'save the new values since they worked
+										wordgrams(i)=wordgrams2(i)
+									next i
 									
 									new_score=new_ngram_score*ngfal*ent2
 									
 									' add in w_score if it passes
-									new_score*=1+solvesub_wgramfactor*(wscore/255.0)/8.0 'multiplicative
+									new_score*=1+solvesub_wgramfactor*(wscore/255.0)/(20.0-ngram_size) 'multiplicative
 									
 									new_score/=hw 'bigram substitution stuff
 									
@@ -33958,7 +33930,8 @@ sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 				hi=1.0/highgram
 				best_score=0
 
-				solution_timer=timer
+				' beijinghouse: allow nearly instant output of first pass
+				solution_timer=timer-solvesub_solutionreleasetimer
 				
 				for lv=1 to lvmax
 					
@@ -34013,7 +33986,6 @@ sub bhdecrypt_allg_bhgov(byval tn_ptr as any ptr)
 							temp_min=temp/iterations
 							new_ngram_score=0
 							
-							' TODO: maybe don't need this? is it too paranoid?
 							for j=0 to al    ' zero out ngrams so keyguard optimization isn't fooled
 								ngrams(j) = 0 ' into thinking there's a valid ngram preceeding it
 							next j
@@ -34305,13 +34277,13 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 	dim as double enttable(constent)
 	dim as byte sr(10),lnb(0)
 	dim as integer rl(40)
+	dim as ushort wordgrams(constcip)
+	dim as ushort wordgrams2(constcip)
 	
 	dim as short maps(constcip)
 	dim as short maps2(constcip)
 	dim as integer mi,mj
 
-	dim as ubyte nwor(constcip)
-	dim as double wscore, wscore2
 	do 'wait for input
 		
 		sleep twait
@@ -34353,11 +34325,12 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 				for i=1 to l
 					nba(i)=thread(tn).cip(i)
 					frc(nba(i))+=1
-					if frc(nba(i))>frcmax then frcmax=frc(nba(i))
-				next i
+					if frc(nba(i))>frcmax then frcmax=frc(nba(i)) ' TODO : could make this bound tighter to save tiny amount of stack memory
+				next i														 ' just need to calculate distance of symbols
 				
 				dim as short map1(s,frcmax)
 				dim as short map2(s,frcmax*ngram_size)
+				dim as short wordmap2(s,frcmax*wngs)
 				dim as short map2b(s,frcmax*ngram_size)
 				
 				for i=1 to l*ngram_size
@@ -34369,6 +34342,7 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 					maps(i)=i
 					mape2(i)=0
 					map1(i,0)=0
+					wordmap2(i,0)=0
 					map2(i,0)=0
 				next i
 				
@@ -34409,6 +34383,25 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 						end if
 					next j
 				next i
+
+				for i=1 to l
+					for j=0 to wngs-1
+						h=i-(wngs-1)
+						if h+j>0 andalso h+j<l-(wngs-2) then
+							e=0
+							for k=1 to wordmap2(nba(i),0)
+								if wordmap2(nba(i),k)=h+j then
+									e=1
+									exit for
+								end if
+							next k
+							if e=0 then
+								wordmap2(nba(i),0)+=1
+								wordmap2(nba(i),wordmap2(nba(i),0))=h+j
+							end if
+						end if
+					next j
+				next i
 				
 				start_temp=(temp1/4.61538)/((s/l)/log(l))
 				start_temp/=m_ioc2(nba(),l,s,2)^0.75
@@ -34420,7 +34413,8 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 				hi=1.0/highgram
 				best_score=0
 				
-				solution_timer=timer
+				' beijinghouse: allow nearly instant output of first pass
+				solution_timer=timer '-solvesub_solutionreleasetimer
 				
 				for lv=1 to lvmax
 					
@@ -34444,6 +34438,9 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 										else
 											new_letter=cribkey(i)-1
 										end if
+									end if
+									if solvesub_reversesolve=1 then  ' re-enable reverse solve mode
+										new_letter=alpharev(thread(tn).key(map1(i,1)))
 									end if
 									stl(i)=new_letter
 									frq(new_letter)+=mape2(i)
@@ -34475,21 +34472,116 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 							temp_min=temp/iterations
 							new_ngram_score=0
 							
-							'select case ngram_size
-							'	case 8
+							select case ngram_size
+								case 8
+									' firstgrams
+'									i = 1
+'									z1 = bh4(sol(i),sol(i+1),sol(i+2),sol(i+3))
+'									if z1 <> 0 and z1 < max_allowed_table_index / sqr(2) then
+'										z2 = bh4(sol(i+4),sol(i+5),sol(i+6),sol(i+7))
+'										if z2 <> 0 and z2 < max_allowed_table_index / sqr(2) then
+'											ngrams(i)=bh8f(z1,z2)
+'											new_ngram_score+=ngrams(i)
+'										else
+'											ngrams(i)=0
+'										end if
+'									else
+'										ngrams(i)=0
+'									end if
+									
+'									for i=2 to al-1
 									for i=1 to al
 										ngrams(i)=bh8(bh4(sol(i),sol(i+1),sol(i+2),sol(i+3)),bh4(sol(i+4),sol(i+5),sol(i+6),sol(i+7)))
 										new_ngram_score+=ngrams(i)
 									next i
+
+'									' lastgrams
+'									i = al
+'									z1 = bh4(sol(i),sol(i+1),sol(i+2),sol(i+3))
+'									if z1 <> 0 and z1 < max_allowed_table_index / sqr(2) then
+'										z2 = bh4(sol(i+4),sol(i+5),sol(i+6),sol(i+7))
+'										if z2 <> 0 and z2 < max_allowed_table_index / sqr(2) then
+'											ngrams(i)=bh8l(z1,z2)
+'											new_ngram_score+=ngrams(i)
+'										else
+'											ngrams(i)=0
+'										end if
+'									else
+'										ngrams(i)=0
+'									end if
+
+								case 9
+									for j=1 to al
+
+										If ninegramformat = 0 Then
+											z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+										Else
+											z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+										endif
+										If z1 = 0 Then
+											ngrams(j) = 0
+										Else
+											If ninegramformat = 0 Then
+												z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+											Else
+												z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+											endif
+											If z2 = 0 Then
+												ngrams(j) = 0
+											else
+													#include "solver_case9.bi"
+											EndIf
+										EndIf
+									
+										new_ngram_score+=ngrams(j)
+									next j
+
+
 							'	case 10
 							'		for i=1 to al
 							'			ngrams(i)=bh10(bh5(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4)),bh5(sol(i+5),sol(i+6),sol(i+7),sol(i+8),sol(i+9)))
 							'			new_ngram_score+=ngrams(i)
 							'		next i
-							'end select
+							end select
+
+							for i=1 to l-(wngs-1)
+									if solvesub_7gwordgrams=0 then
+										wordgrams(i)=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
+									else
+										wordgrams(i)=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
+									end if
+							next i
+
+							#include "solver_bonusgram_init.bi"
 							
 							mc=5
 							mc_minus=(mc-1)/iterations
+
+							accept=1
+
+							if solvesub_reversesolve=1 then
+								#include "solver_fastent_bh.bi"
+
+								#include "solver_wordscore.bi"
+
+								new_score=new_ngram_score*ngfal*ent2
+
+								' add in w_score if it passes
+								new_score*=1+solvesub_wgramfactor*(wscore/255.0)/(14.0-ngram_size) 'multiplicative
+
+								old_score=new_score
+								if new_score>best_score then
+									thread(tn).sectime=timer-sectimer
+									thread(tn).ent=entropy
+									thread(tn).multiplicity=s/l
+									#include "solver_ioc.bi"
+									for i=1 to l
+										thread(tn).sol(i)=alphabet(sol(i))
+									next i
+									best_score=new_score+0.00001
+									thread(tn).score=best_score
+								end if
+							end if
 							
 							for it=1 to iterations
 								
@@ -34510,12 +34602,14 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 									k=1+map2(curr_symbol,0)*state shr 31
 									j=map2(curr_symbol,k)
 									new_letter=abc_size
-									'select case ngram_size
-									'	case 8
+									select case ngram_size
+										case 8
 											#include "solver_pickletter_bh8.bi"
+										case 9
+											#include "solver_pickletter_bh9.bi"
 									'	case 10
 									'		#include "solver_pickletter_bh10.bi"
-									'end select
+									end select
 									if new_letter=old_letter or new_letter=abc_size then
 										#include "solver_randomnewletter.bi"
 									end if
@@ -34532,118 +34626,15 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 									j=map2(curr_symbol,i)
 									new_ngram_score-=ngrams(j)
 								next i
+
+								#include "solver_bonusgram_main.bi"
 								
 								#include "solver_fastent_bh.bi"
-
-								if solvesub_wordgrams_enabled=1 then
-									'word gram score addon:
-									'----------------------
-									'idea: somehow allow a exception for words that end with ING,LY,etc
-									'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
-									
-									dim as integer words=0,nwlen=0,wordlen=0,wngs=7
-									if solvesub_7gwordgrams=0 then
-										wngs=6
-									end if		
-									for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
-										sol(i)=sol(i-l)
-									next i
-									for i=1 to l 'convert sol array to words
-										if solvesub_7gwordgrams=0 then
-											j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
-										else
-											j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
-										end if
-										if j>0 then
-											select case nwlen
-												case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-												case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-												case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-												case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-												case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-												case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-											end select
-											if nwlen>0 then
-												words+=1
-												wor(words)=0
-												'wordlen+=nwlen
-												nwlen=0
-											end if
-											if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
-												e=1
-												'if wl(j,0)>=l-(i-1) then
-													for k=0 to wl(j,0)-1
-														if wl(j,k+1)<>sol(i+k)+65 then
-															e=0
-															exit for
-														end if
-													next k
-												'end if
-												if e=1 then
-													words+=1
-													wor(words)=j
-													'wordlen+=wl(j,0)
-													i+=wl(j,0)-1 'skip other letters of the found word
-												else
-													'nwlen+=1
-													'nwor(nwlen)=sol(i)
-													words+=1
-													wor(words)=j
-													'wordlen+=wl(j,0)
-													i+=wl(j,0)-1 'skip other letters of the found word
-												end if
-											else
-												words+=1
-												if wl(j,0)>l-(i-1) then wor(words)=0 else wor(words)=j
-												'wordlen+=wl(j,0)
-												i+=wl(j,0)-1 'skip other letters of the found word
-											end if
-										else
-											nwlen+=1
-											nwor(nwlen)=sol(i)
-										end if
-									next i
-									select case nwlen
-										case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-										case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-									end select
-									if nwlen>0 then
-										words+=1
-										wor(words)=0
-										'wordlen+=nwlen
-										nwlen=0
-									end if
-									if words>1 then
-										wscore = 0
-										for i=1 to words-1 'score words with word 2-grams
-											wscore2=wl2(wor(i),wor(i+1))
-											' punish common "stop words" so wordgrams don't select too hard for them
-											' since they are usually short and over-selected for by n-grams already
-											' similar resistance factor to entropy for 
-					'						if wl(wor(i),0) < 3 then
-					'							wscore2*=0.9
-					'						end if
-					'						if wl(wor(i+1),0) < 3 then
-					'							wscore2*=0.9
-					'						end if
-											wscore+=wscore2 'wl2(wor(i),wor(i+1))
-										next i
-					'					wscore+=wl2(wor(i),wor(1)) 'wrap around ' no last word + 1st word != valid pairing
-										if wscore>0 then
-											wscore/=words-1
-											'wscore/=1+(l/words)/solvesub_seqweight
-					''' do below						new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
-											'new_score+=wscore*solvesub_matchweight 'additive
-										end if
-									end if
-								end if
+								
+								#include "solver_wordscore.bi"
 
 								' works by adding in upcoming wordscore to test for score needed
-								score_needed=(old_score/ent2/ngfal/(1+solvesub_wgramfactor*(wscore/255.0)/8.0)-new_ngram_score)*hi
+								score_needed=(old_score/ent2/ngfal/(1+solvesub_wgramfactor*(wscore/255.0)/(14.0-ngram_size))-new_ngram_score)*hi
 
 '								score_needed=(old_score/ent2/ngfal-new_ngram_score)*hi
 								
@@ -34651,18 +34642,64 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 									for i=1 to map1(curr_symbol,0)
 										sol(map1(curr_symbol,i))=new_letter
 									next i
-									'select case ngram_size 
-									'	case 8
+									select case ngram_size 
+										case 8
 											for i=1 to num_ngrams
 												z=0
 												j=map2(curr_symbol,i)
 												z1=bh4(sol(j),sol(j+1),sol(j+2),sol(j+3))
 												if z1<>0 then
 													z2=bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7))
-													if z2<>0 then z=bh8(z1,z2)
+													if z2<>0 then
+'														if j=1 then
+'															if z1 < max_allowed_table_index / sqr(2) and  z2 < max_allowed_table_index / sqr(2) then
+'																z=bh8f(z1,z2)
+'															end if
+'														elseif j=al then
+'															if z1 < max_allowed_table_index / sqr(2) and  z2 < max_allowed_table_index / sqr(2) then
+'																z=bh8l(z1,z2)
+'															end if
+'														else
+															z=bh8(z1,z2)
+'														end if
+													end if
 												end if
 												score_needed-=z*hi
 												if (num_ngrams-i)<score_needed then exit for
+'												if (num_ngrams-i)<score_needed then
+'													for h=i+1 to num_ngrams		' beijinghouse add old scores in to make
+'														j=map2(curr_symbol,h)	' this closer to what it would end up being
+'														new_ngram_score+=ngrams(j)	' if finished so can use in temp optimization below
+'													next h
+'													exit for
+'												end if
+												new_ngram_score+=z
+												if score_needed<0 then exit for
+											next i
+										case 9
+											for i=1 to num_ngrams
+												j=map2(curr_symbol,i)
+												If ninegramformat = 0 Then
+													z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												Else
+													z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												endif
+												If z1 = 0 Then
+													z = 0
+												Else
+													If ninegramformat = 0 Then
+														z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													Else
+														z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													endif
+													If z2 = 0 Then
+														z = 0
+													else
+															#include "solver_case9z.bi"
+													EndIf
+												endif
+												score_needed-=z*hi
+												if num_ngrams-i<score_needed then exit for
 												new_ngram_score+=z
 												if score_needed<0 then exit for
 											next i
@@ -34680,7 +34717,7 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 									'			new_ngram_score+=z
 									'			if score_needed<0 then exit for
 									'		next i
-									'end select
+									end select
 									if score_needed>=0 then
 										for i=1 to map1(curr_symbol,0)
 											sol(map1(curr_symbol,i))=old_letter
@@ -34691,30 +34728,87 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 								'---------------------------------------------------------------------
 								
 								if score_needed<0 then
-									
+
+									accept=1
+
+									#include "solver_bonusgram_tail.bi"
+
 									frq(old_letter)-=mape2(curr_symbol)
 									frq(new_letter)+=mape2(curr_symbol)
 									stl(curr_symbol)=new_letter
-									
-									'select case ngram_size
-									'	case 8
+
+									select case ngram_size
+										case 8
 											for h=1 to num_ngrams
 												j=map2(curr_symbol,h)
-												ngrams(j)=bh8(bh4(sol(j),sol(j+1),sol(j+2),sol(j+3)),bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7)))
+												z1=bh4(sol(j),sol(j+1),sol(j+2),sol(j+3))
+												if z1<>0 then
+													z2=bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7))
+													if z2<>0 then
+'														if j=1 then
+'															if z1 < max_allowed_table_index / sqr(2) and  z2 < max_allowed_table_index / sqr(2) then
+'																ngrams(j)=bh8f(z1,z2)
+'															else
+'																ngrams(j)=0
+'															end if
+'														elseif j=al then
+'															if z1 < max_allowed_table_index / sqr(2) and  z2 < max_allowed_table_index / sqr(2) then
+'																ngrams(j)=bh8l(z1,z2)
+'															else
+'																ngrams(j)=0
+'															end if
+'														else
+															ngrams(j)=bh8(z1,z2)
+'														end if
+													else
+														ngrams(j)=0
+													end if
+												else
+													ngrams(j)=0
+												end if
 												if h>i then new_ngram_score+=ngrams(j)
 											next h
+										case 9
+											for k=1 to num_ngrams
+												j=map2(curr_symbol,k)
+												If ninegramformat = 0 Then
+													z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												Else
+													z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												endif
+												If z1 = 0 Then
+													ngrams(j) = 0
+												Else
+													If ninegramformat = 0 Then
+														z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													Else
+														z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													EndIf
+													If z2 = 0 Then
+														ngrams(j) = 0
+													else
+															#include "solver_case9.bi"
+													EndIf
+												endif
+												if k>i then new_ngram_score+=ngrams(j)
+											next k
+
 									'	case 10
 									'		for h=1 to num_ngrams
 									'			j=map2(curr_symbol,h)
 									'			ngrams(j)=bh10(bh5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4)),bh5(sol(j+5),sol(j+6),sol(j+7),sol(j+8),sol(j+9)))
 									'			if h>i then new_ngram_score+=ngrams(j)
 									'		next h
-									'end select
+									end select
+
+									for i=1 to l-(wngs-1) 'save the new values since they worked
+										wordgrams(i)=wordgrams2(i)
+									next i
 									
 									new_score=new_ngram_score*ngfal*ent2
 
 									' add in w_score if it passes
-									new_score*=1+solvesub_wgramfactor*(wscore/255.0)/8.0 'multiplicative
+									new_score*=1+solvesub_wgramfactor*(wscore/255.0)/(14.0-ngram_size) 'multiplicative
 
 									old_score=new_score
 									
@@ -34733,8 +34827,8 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 										for i=1 to s
 											key1(i)=stl(i)
 										next i
+
 										#include "solver_accuracy_shortcircuit_bh.bi" 'inflates 100% accuracy
-										
 									end if
 									
 									if solution_improved=1 andalso timer-solution_timer>solvesub_solutionreleasetimer then
@@ -34748,12 +34842,16 @@ sub bhdecrypt_810g(byval tn_ptr as any ptr)
 									end if
 									
 								else
-									
+
+									accept=0
 									new_ngram_score=old_ngram_score
 									entropy=old_entropy
 									
 									#include "solver_picksymbol.bi"
-									
+
+									' TODO: find way to do this with optimization above
+'									old_score-=temp*map1(curr_symbol,0)*onesixl*old_score/new_score
+'									old_score-=temp*map1(curr_symbol,0)*onesixl*old_score/(new_ngram_score*ngfal*ent2*(1+solvesub_wgramfactor*(wscore/255.0)/(14.0-ngram_size)))
 									old_score-=temp*map1(curr_symbol,0)*onesixl
 									
 								end if
@@ -34834,13 +34932,13 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 	dim as double enttable(constent)
 	dim as byte sr(10),lnb(0)
 	dim as integer rl(40)
+	dim as ushort wordgrams(constcip)
+	dim as ushort wordgrams2(constcip)
 	
 	dim as short maps(constcip)
 	dim as short maps2(constcip)
 	dim as integer mi,mj
 
-	dim as ubyte nwor(constcip)
-	dim as double wscore
 	do 'wait for input
 		
 		sleep twait
@@ -34857,7 +34955,9 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 			next i
 			
 			select case ngram_size
-				case 8:tempdiv=2.5
+				case 8:tempdiv=3.0
+				case 9:tempdiv=2.5
+'				case 8:tempdiv=2.5
 				case 10:tempdiv=2
 			end select
 			
@@ -34887,6 +34987,7 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 				
 				dim as short map1(s,frcmax)
 				dim as short map2(s,frcmax*ngram_size)
+				dim as short wordmap2(s,frcmax*wngs)
 				dim as short map2b(s,frcmax*ngram_size)
 				
 				'------------------------ monoalphabetic groups ------------------------
@@ -34940,6 +35041,7 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 					frc(i)=0
 					map1(i,0)=0
 					map2(i,0)=0
+					wordmap2(i,0)=0
 					maps(i)=i
 					mape2(i)=0
 				next i
@@ -34981,7 +35083,26 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 						end if
 					next j
 				next i
-				
+
+				for i=1 to l
+					for j=0 to wngs-1
+						h=i-(wngs-1)
+						if h+j>0 andalso h+j<l-(wngs-2) then
+							e=0
+							for k=1 to wordmap2(nba(i),0)
+								if wordmap2(nba(i),k)=h+j then
+									e=1
+									exit for
+								end if
+							next k
+							if e=0 then
+								wordmap2(nba(i),0)+=1
+								wordmap2(nba(i),wordmap2(nba(i),0))=h+j
+							end if
+						end if
+					next j
+				next i
+
 				start_temp=(temp1/4.61538)/((s/l)/log(l))
 				start_temp/=m_ioc2(nba(),l,s,2)^0.75
 				curr_temp=start_temp
@@ -34992,7 +35113,8 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 				hi=1.0/highgram
 				best_score=0
 				
-				solution_timer=timer
+				' beijinghouse: allow nearly instant output of first pass
+				solution_timer=timer-solvesub_solutionreleasetimer
 				
 				for lv=1 to lvmax
 					
@@ -35088,19 +35210,56 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 							temp_min=temp/iterations
 							new_ngram_score=0
 							
-							'select case ngram_size
-							'	case 8
+							select case ngram_size
+								case 8
 									for i=1 to al
 										ngrams(i)=bh8(bh4(sol(i),sol(i+1),sol(i+2),sol(i+3)),bh4(sol(i+4),sol(i+5),sol(i+6),sol(i+7)))
 										new_ngram_score+=ngrams(i)
 									next i
-							'	case 10
-							'		for i=1 to al
-							'			ngrams(i)=bh10(bh5(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4)),bh5(sol(i+5),sol(i+6),sol(i+7),sol(i+8),sol(i+9)))
-							'			new_ngram_score+=ngrams(i)
-							'		next i
-							'end select
+								case 9
+									for j=1 to al
+
+										If ninegramformat = 0 Then
+											z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+										Else
+											z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+										endif
+										If z1 = 0 Then
+											ngrams(j) = 0
+										Else
+											If ninegramformat = 0 Then
+												z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+											Else
+												z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+											endif
+											If z2 = 0 Then
+												ngrams(j) = 0
+											else
+													#include "solver_case9.bi"
+											EndIf
+										EndIf
+									
+										new_ngram_score+=ngrams(j)
+									next j
+								'case 10
+								'	for i=1 to al
+								'		ngrams(i)=bh10(bh5(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4)),bh5(sol(i+5),sol(i+6),sol(i+7),sol(i+8),sol(i+9)))
+								'		new_ngram_score+=ngrams(i)
+								'	next i
+							end select
+
+							for i=1 to l-(wngs-1)
+									if solvesub_7gwordgrams=0 then
+										wordgrams(i)=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
+									else
+										wordgrams(i)=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
+									end if
+							next i
+
+							#include "solver_bonusgram_init.bi"
 							
+							accept=1
+														
 							mc=5
 							mc_minus=(mc-1)/iterations
 							
@@ -35123,12 +35282,14 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 									k=1+map2(curr_symbol,0)*state shr 31
 									j=map2(curr_symbol,k)
 									new_letter=abc_size
-									'select case ngram_size
-									'	case 8
+									select case ngram_size
+										case 8
 											#include "solver_pickletter_bh8.bi"
+										case 9
+											#include "solver_pickletter_bh9.bi"
 									'	case 10
 									'		#include "solver_pickletter_bh10.bi"
-									'end select
+									end select
 									if new_letter=old_letter or new_letter=ngram_alphabet_size then
 										#include "solver_randomnewletter.bi"
 									end if
@@ -35143,11 +35304,14 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 								
 								old_ngram_score=new_ngram_score
 								num_ngrams=map2(curr_symbol,0)
+
 								
 								for i=1 to num_ngrams
 									j=map2(curr_symbol,i)
 									new_ngram_score-=ngrams(j)
 								next i
+
+								#include "solver_bonusgram_main.bi"
 								
 								#include "solver_fastent_bh.bi"
 								
@@ -35168,113 +35332,18 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 								norm=1+(ghp/lsdx)
 								
 								
+								' beijinghouse hurts score on mono tests maybe? should it be disabled?	
+								#include "solver_wordscore.bi"
 
-								if solvesub_wordgrams_enabled=1 then
-									'word gram score addon:
-									'----------------------
-									'idea: somehow allow a exception for words that end with ING,LY,etc
-									'issue: long strings of characters are moved into long unrecognizable words to minizize impact on word n-gram score
-									
-									dim as integer words=0,nwlen=0,wordlen=0,wngs=7
-									if solvesub_7gwordgrams=0 then
-										wngs=6
-									end if		
-									for i=l+1 to l+(wngs-1) 'wrap around cipher to catch last word(s)
-										sol(i)=sol(i-l)
-									next i
-									for i=1 to l 'convert sol array to words
-										if solvesub_7gwordgrams=0 then
-											j=g6w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5))
-										else
-											j=g7w(sol(i),sol(i+1),sol(i+2),sol(i+3),sol(i+4),sol(i+5),sol(i+6))
-										end if
-										if j>0 then
-											'select case nwlen
-											'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-											'end select
-											if nwlen>0 then
-												words+=1
-												wor(words)=0
-												'wordlen+=nwlen
-												nwlen=0
-											end if
-											if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
-												e=1
-												'if wl(j,0)>=l-(i-1) then
-													for k=0 to wl(j,0)-1
-														if wl(j,k+1)<>sol(i+k)+65 then
-															e=0
-															exit for
-														end if
-													next k
-												'end if
-												if e=1 then
-													words+=1
-													wor(words)=j
-													'wordlen+=wl(j,0)
-													i+=wl(j,0)-1 'skip other letters of the found word
-												else
-													'nwlen+=1
-													'nwor(nwlen)=sol(i)
-													words+=1
-													wor(words)=j
-													'wordlen+=wl(j,0)
-													i+=wl(j,0)-1 'skip other letters of the found word
-												end if
-											else
-												words+=1
-												if wl(j,0)>l-(i-1) then wor(words)=0 else wor(words)=j
-												'wordlen+=wl(j,0)
-												i+=wl(j,0)-1 'skip other letters of the found word
-											end if
-										else
-											nwlen+=1
-											nwor(nwlen)=sol(i)
-										end if
-									next i
-									'select case nwlen
-									'	case 1:k=g6w2(nwor(1),26,26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 2:k=g6w2(nwor(1),nwor(2),26,26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 3:k=g6w2(nwor(1),nwor(2),nwor(3),26,26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 4:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),26,26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 5:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),26):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'	case 6:k=g6w2(nwor(1),nwor(2),nwor(3),nwor(4),nwor(5),nwor(6)):if k>0 then words+=1:wor(words)=k:nwlen=0
-									'end select
-									if nwlen>0 then
-										words+=1
-										wor(words)=0
-										'wordlen+=nwlen
-										nwlen=0
-									end if
-									if words>1 then
-										wscore = 0
-										for i=1 to words-1 'score words with word 2-grams
-											wscore+=wl2(wor(i),wor(i+1))
-										next i
-		'								wscore+=wl2(wor(i),wor(1)) 'wrap around
-										if wscore>0 then
-											wscore/=words-1
-											'wscore/=1+(l/words)/solvesub_seqweight
-					''' do below						new_score*=1+solvesub_wgramfactor*(wscore/255)/6 'multiplicative
-											'new_score+=wscore*solvesub_matchweight 'additive
-										end if
-									end if
-								end if
-								
 								' works by adding in upcoming wordscore to test for score needed
-								score_needed=(old_score*norm/ent2/ngfal/(1+solvesub_wgramfactor*(wscore/255.0)/8.0)-new_ngram_score)*hi
+								score_needed=(old_score*norm/ent2/ngfal/(1+solvesub_wgramfactor*(wscore/255.0)/(20.0-ngram_size))-new_ngram_score)*hi
 																
 								if num_ngrams>score_needed then 'beijinghouse score_needed optimization
 									for i=1 to map1(curr_symbol,0)
 										sol(map1(curr_symbol,i))=new_letter
 									next i
-									'select case ngram_size 
-									'	case 8
+									select case ngram_size 
+										case 8
 											for i=1 to num_ngrams
 												z=0
 												j=map2(curr_symbol,i)
@@ -35285,6 +35354,33 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 												end if
 												score_needed-=z*hi
 												if (num_ngrams-i)<score_needed then exit for
+												new_ngram_score+=z
+												if score_needed<0 then exit for
+											next i
+										case 9
+											for i=1 to num_ngrams
+												j=map2(curr_symbol,i)
+												If ninegramformat = 0 Then
+													z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												Else
+													z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												endif
+												If z1 = 0 Then
+													z = 0
+												Else
+													If ninegramformat = 0 Then
+														z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													Else
+														z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													endif
+													If z2 = 0 Then
+														z = 0
+													else
+															#include "solver_case9z.bi"
+													EndIf
+												endif
+												score_needed-=z*hi
+												if num_ngrams-i<score_needed then exit for
 												new_ngram_score+=z
 												if score_needed<0 then exit for
 											next i
@@ -35302,7 +35398,8 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 										'		new_ngram_score+=z
 										'		if score_needed<0 then exit for
 										'	next i
-									'end select
+									end select
+
 									if score_needed>=0 then
 										for i=1 to map1(curr_symbol,0)
 											sol(map1(curr_symbol,i))=old_letter
@@ -35338,30 +35435,61 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 								'---------------------------------------------------------------------
 								
 								if score_needed<0 then
-									
+
+									accept = 1
+									#include "solver_bonusgram_tail.bi"
+
 									frq(old_letter)-=mape2(curr_symbol)
 									frq(new_letter)+=mape2(curr_symbol)
 									stl(curr_symbol)=new_letter
 									
-									'select case ngram_size
-									'	case 8
+									select case ngram_size
+										case 8
 											for h=1 to num_ngrams
 												j=map2(curr_symbol,h)
 												ngrams(j)=bh8(bh4(sol(j),sol(j+1),sol(j+2),sol(j+3)),bh4(sol(j+4),sol(j+5),sol(j+6),sol(j+7)))
 												if h>i then new_ngram_score+=ngrams(j)
 											next h
+										case 9
+											for k=1 to num_ngrams
+												j=map2(curr_symbol,k)
+												If ninegramformat = 0 Then
+													z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												Else
+													z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
+												endif
+												If z1 = 0 Then
+													ngrams(j) = 0
+												Else
+													If ninegramformat = 0 Then
+														z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													Else
+														z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
+													EndIf
+													If z2 = 0 Then
+														ngrams(j) = 0
+													else
+															#include "solver_case9.bi"
+													EndIf
+												endif
+												if k>i then new_ngram_score+=ngrams(j)
+											next k
 									'	case 10
 									'		for h=1 to num_ngrams
 									'			j=map2(curr_symbol,h)
 									'			ngrams(j)=bh10(bh5(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4)),bh5(sol(j+5),sol(j+6),sol(j+7),sol(j+8),sol(j+9)))
 									'			if h>i then new_ngram_score+=ngrams(j)
 									'		next h
-									'end select
+									end select
+
+									for i=1 to l-(wngs-1) 'save the new values since they worked
+										wordgrams(i)=wordgrams2(i)
+									next i
 									
 									new_score=new_ngram_score*ngfal*ent2
 									
 									' add in w_score if it passes
-									new_score*=1+solvesub_wgramfactor*(wscore/255.0)/8.0 'multiplicative
+									new_score*=1+solvesub_wgramfactor*(wscore/255.0)/(20.0-ngram_size) 'multiplicative
 									
 									new_score/=norm 'monoalphabetic groups
 									
@@ -35402,13 +35530,17 @@ sub bhdecrypt_groups_810g(byval tn_ptr as any ptr)
 									
 								else
 									
+									accept = 0
+									
 									norm=old_norm 'monoalphabetic groups
 									
 									new_ngram_score=old_ngram_score
 									entropy=old_entropy
 									
 									#include "solver_picksymbol.bi"
-									
+
+									' TODO: find way to do this with optimization above
+'									old_score-=temp*map1(curr_symbol,0)*onesixl*old_score/new_score
 									old_score-=temp*map1(curr_symbol,0)*onesixl
 									
 								end if
