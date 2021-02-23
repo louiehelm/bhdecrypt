@@ -57,19 +57,11 @@ if solvesub_accshortcircuit=1 andalso thread(tn).solkey=1 andalso solvesub_rever
 							case 9
 								for i=1 to num_ngrams
 									j=map2(curr_symbol,i)
-									If ninegramformat = 0 Then
-										z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-									Else
-										z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-									endif
+									z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
 									If z1 = 0 Then
 										z = 0
 									Else
-										If ninegramformat = 0 Then
-											z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-										Else
-											z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-										endif
+										z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
 										If z2 = 0 Then
 											z = 0
 										else

@@ -8,7 +8,7 @@ if solvesub_wordgrams_enabled=1 then
 	words=0
 	nwlen=0
 	wordlen=0
-	for i=1 to l-(wngs-1) 'copy known values
+	for i=1 to l-(wngs-1) 'copy known values 
 		wordgrams2(i)=wordgrams(i)
 	next i
 	for h=1 to wordmap2(curr_symbol,0)  ' beijinghouse: added caching so only have to check changes
@@ -33,37 +33,108 @@ if solvesub_wordgrams_enabled=1 then
 			if nwlen>0 then
 				words+=1
 				wor(words)=0
-				'wordlen+=nwlen
+				wordlen+=nwlen
 				nwlen=0
 			end if
 			if wl(j,0)>wngs then 'if word length >7 then check word vs wordlist entry
 				e=1
-				'if wl(j,0)>=l-(i-1) then
-					for k=0 to wl(j,0)-1
-						if wl(j,k+1)<>sol(i+k)+65 then
+				if wl(j,0)>l-(i-1) then
+				   e=0
+				else
+					for k=wngs+1 to wl(j,0) 'k=0 to wl(j,0)-1
+						if wl(j,k)<>sol(i+k-1)+65 then
 							e=0
 							exit for
 						end if
 					next k
-				'end if
-				if e=1 then
+				end if
+				if e=1 then ' main word works, check for longer ones first though
+				   j2=j ' best found so far
+				   new_j=j ' next item being tested
+				   ez=1 ' base string still matches
+				   while (ez<>0)
+				    new_j+=1
+					 if wl(new_j,0) > wl(j2,0) then
+                  ez=1
+						for tz=1 to wngs 'wl(j,0)
+							if wl(new_j,tz) <> wl(j,tz) then
+							   ez=0
+							   exit for
+							end if
+						next tz
+						ez2=1
+						if ez=1 then ' if lower string matches
+							if wl(new_j,0)>l-(i-1) then ' and checks out that cipher long enough for bigger string to fit
+							   ez2=0
+							else
+								for tz=wngs+1 to wl(new_j,0) 'wl(j,0) to wl(new_j,0)-1 ' check if new part matches
+									if wl(new_j,tz) <> sol(i+tz-1)+65 then
+									   ez2=0
+									   exit for
+									end if
+								next tz
+							end if
+							if ez2=1 then j2=new_j
+						end if
+					 else
+					   ez=0
+					 end if
+					wend
+					
 					words+=1
-					wor(words)=j
+					wor(words)=j2
 					'wordlen+=wl(j,0)
-					i+=wl(j,0)-1 'skip other letters of the found word
+					i+=wl(j2,0)-1 'skip other letters of the found word
 				else
-					nwlen+=1 ''
-					nwor(nwlen)=sol(i) ''
-''													words+=1
-''													wor(words)=j
-					'wordlen+=wl(j,0)
-''													i+=wl(j,0)-1 'skip other letters of the found word
+					nwlen+=1
+					nwor(nwlen)=sol(i)
 				end if
 			else
-				words+=1
-				if wl(j,0)>l-(i-1) then wor(words)=0 else wor(words)=j
-				'wordlen+=wl(j,0)
-				i+=wl(j,0)-1 'skip other letters of the found word
+				if wl(j,0)>l-(i-1) then
+					nwlen+=1
+					nwor(nwlen)=sol(i)
+				else
+					
+					
+				   ' main word works, check for longer ones first though
+				   j2=j ' best found so far
+				   if wl(j2,0) > 3 then
+					   new_j=j ' next item being tested
+					   ez=1 ' base string still matches
+					   while (ez<>0)
+					    new_j+=1
+						 if wl(new_j,0) > wl(j2,0) then
+	                  ez=1
+							for tz=1 to wl(j,0)
+								if wl(new_j,tz) <> wl(j,tz) then
+								   ez=0
+								   exit for
+								end if
+							next tz
+							ez2=1
+							if ez=1 then ' if lower string matches
+								if wl(new_j,0)>l-(i-1) then ' and checks out that cipher long enough for bigger string to fit
+								   ez2=0
+								else
+									for tz=wl(j,0)+1 to wl(new_j,0) 'wl(j,0) to wl(new_j,0)-1 ' check if new part matches
+										if wl(new_j,tz) <> sol(i+tz-1)+65 then
+										   ez2=0
+										   exit for
+										end if
+									next tz
+								end if
+								if ez2=1 then j2=new_j
+							end if
+						 else
+						   ez=0
+						 end if
+						wend
+				   end if
+					
+					words+=1				
+					wor(words)=j2
+					i+=wl(j2,0)-1 'skip other letters of the found word
+				end if
 			end if
 		else
 			nwlen+=1
@@ -81,7 +152,7 @@ if solvesub_wordgrams_enabled=1 then
 	if nwlen>0 then
 		words+=1
 		wor(words)=0
-		'wordlen+=nwlen
+		wordlen+=nwlen
 		nwlen=0
 	end if
 	if words>1 then
@@ -93,7 +164,7 @@ if solvesub_wordgrams_enabled=1 then
 		next i
 '		j += wl(wor(words),0)
 		if wscore>0 then
-			wscore/=words-1   ' normal
+			wscore/=(words-1 + wordlen/6.0)   ' beijinghouse last term punishes unassigned "wordless" letters
 '			wscore/=(12-j)         ' avg relation score / avg length
 		end if
 	end if

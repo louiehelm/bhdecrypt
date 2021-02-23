@@ -40,7 +40,8 @@ dim as ubyte fg, old_fg 'firstgrams
 dim as ubyte sg, old_sg 'lastgrams
 dim as ubyte slg, old_slg 'secondlastgrams
 dim as ubyte lg, old_lg 'lastgrams
-	
+
+dim as integer ez,ez2,j2,new_j,tz
 dim as ushort wor(constcip) 'word array
 dim as ubyte nwor(constcip)
 dim as double wscore=0.0

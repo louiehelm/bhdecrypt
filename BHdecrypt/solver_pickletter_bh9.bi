@@ -1,17 +1,9 @@
 select case map2b(curr_symbol,k)
 	case 0
-		If ninegramformat = 0 Then
-			z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-		Else
-			z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-		endif
+		z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
 		If z1 <> 0 Then
 			for i=0 to abc_sizem1
-				If ninegramformat = 0 Then
-					z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),i)
-				Else
-					z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),i)
-				EndIf
+				z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),i)
 				If z2 <> 0 then
 						#include "solver_case9blt.bi"
 				Else
@@ -22,18 +14,10 @@ select case map2b(curr_symbol,k)
 		EndIf
 		
 	case 1
-		If ninegramformat = 0 Then
-			z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-		Else
-			z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-		endif
+		z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
 		If z1 <> 0 Then
 			for i=0 to abc_sizem1
-				If ninegramformat = 0 Then
-					z2 = g52(sol(j+4),sol(j+5),sol(j+6),i,sol(j+8))
-				Else
-					z2 = g54(sol(j+4),sol(j+5),sol(j+6),i,sol(j+8))
-				EndIf
+				z2 = g54(sol(j+4),sol(j+5),sol(j+6),i,sol(j+8))
 				If z2 <> 0 Then
 						#include "solver_case9blt.bi"
 				Else
@@ -44,18 +28,10 @@ select case map2b(curr_symbol,k)
 		EndIf
 
 	case 2
-		If ninegramformat = 0 Then
-			z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-		Else
-			z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-		endif
+		z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
 		If z1 > 0 Then
 			for i=0 to abc_sizem1
-				If ninegramformat = 0 Then
-					z2 = g52(sol(j+4),sol(j+5),i,sol(j+7),sol(j+8))
-				Else
-					z2 = g54(sol(j+4),sol(j+5),i,sol(j+7),sol(j+8))
-				EndIf
+				z2 = g54(sol(j+4),sol(j+5),i,sol(j+7),sol(j+8))
 				If z2 <> 0 Then
 						#include "solver_case9blt.bi"
 				Else
@@ -66,18 +42,10 @@ select case map2b(curr_symbol,k)
 		EndIf
 
 	case 3
-		If ninegramformat = 0 Then
-			z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-		Else
-			z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-		endif
+		z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),sol(j+4))
 		If z1 > 0 Then
 			for i=0 to abc_sizem1
-				If ninegramformat = 0 Then
-					z2 = g52(sol(j+4),i,sol(j+6),sol(j+7),sol(j+8))
-				Else
-					z2 = g54(sol(j+4),i,sol(j+6),sol(j+7),sol(j+8))
-				EndIf
+				z2 = g54(sol(j+4),i,sol(j+6),sol(j+7),sol(j+8))
 				If z2 <> 0 Then
 						#include "solver_case9blt.bi"
 				Else
@@ -89,17 +57,9 @@ select case map2b(curr_symbol,k)
 		
 	case 4
 		for i=0 to abc_sizem1
-			If ninegramformat = 0 Then
-				z1 = g51(sol(j),sol(j+1),sol(j+2),sol(j+3),i)
-			Else
-				z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),i)
-			EndIf
+			z1 = g53(sol(j),sol(j+1),sol(j+2),sol(j+3),i)
 			If z1 <> 0 Then
-				If ninegramformat = 0 Then
-					z2 = g52(i,sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-				Else
-					z2 = g54(i,sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-				EndIf
+				z2 = g54(i,sol(j+5),sol(j+6),sol(j+7),sol(j+8))
 				If z2 <> 0 then
 						#include "solver_case9bltrl.bi"
 				Else
@@ -112,18 +72,10 @@ select case map2b(curr_symbol,k)
 		next i
 
 	case 5
-		If ninegramformat = 0 Then
-			z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-		Else
-			z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-		endif
+		z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
 		If z2 > 0 Then
 			for i=0 to abc_sizem1
-				If ninegramformat = 0 Then
-					z1 = g51(sol(j),sol(j+1),sol(j+2),i,sol(j+4))
-				Else
-					z1 = g53(sol(j),sol(j+1),sol(j+2),i,sol(j+4))
-				EndIf
+				z1 = g53(sol(j),sol(j+1),sol(j+2),i,sol(j+4))
 				If z1 <> 0 Then
 					#include "solver_case9blt.bi"
 				Else
@@ -134,18 +86,10 @@ select case map2b(curr_symbol,k)
 		EndIf
 
 	case 6
-		If ninegramformat = 0 Then
-			z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-		Else
-			z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-		endif
+		z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
 		If z2 > 0 Then
 			for i=0 to mc
-				If ninegramformat = 0 Then
-					z1 = g51(sol(j),sol(j+1),i,sol(j+3),sol(j+4))
-				Else
-					z1 = g53(sol(j),sol(j+1),i,sol(j+3),sol(j+4))
-				EndIf
+				z1 = g53(sol(j),sol(j+1),i,sol(j+3),sol(j+4))
 				If z1 <> 0 Then
 						#include "solver_case9blt.bi"
 				Else
@@ -156,18 +100,10 @@ select case map2b(curr_symbol,k)
 		EndIf
 
 	case 7
-		If ninegramformat = 0 Then
-			z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-		Else
-			z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-		endif
+		z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
 		If z2 > 0 Then
 			for i=0 to abc_sizem1
-				If ninegramformat = 0 Then
-					z1 = g51(sol(j),i,sol(j+2),sol(j+3),sol(j+4))
-				Else
-					z1 = g53(sol(j),i,sol(j+2),sol(j+3),sol(j+4))
-				EndIf
+				z1 = g53(sol(j),i,sol(j+2),sol(j+3),sol(j+4))
 				If z1 <> 0 Then
 						#include "solver_case9blt.bi"
 				Else
@@ -178,18 +114,10 @@ select case map2b(curr_symbol,k)
 		EndIf
 
 	case 8
-		If ninegramformat = 0 Then
-			z2 = g52(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-		Else
-			z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
-		endif
+		z2 = g54(sol(j+4),sol(j+5),sol(j+6),sol(j+7),sol(j+8))
 		If z2 > 0 Then
 			for i=0 to abc_sizem1
-				If ninegramformat = 0 Then
-					z1 = g51(i,sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-				Else
-					z1 = g53(i,sol(j+1),sol(j+2),sol(j+3),sol(j+4))
-				EndIf
+				z1 = g53(i,sol(j+1),sol(j+2),sol(j+3),sol(j+4))
 				If z1 <> 0 Then
 						#include "solver_case9blt.bi"
 				Else
