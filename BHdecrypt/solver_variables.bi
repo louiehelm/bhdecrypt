@@ -45,6 +45,9 @@ dim as integer ez,ez2,j2,new_j,tz
 dim as ushort wor(constcip) 'word array
 dim as ubyte nwor(constcip)
 dim as double wscore=0.0
+dim as double wscore_current,wscore2,wscore3
+dim as ushort w31,w32,w33
+dim as integer valid_triples
 dim as integer words=0,nwlen=0,wordlen=0,wngs=7
 if solvesub_7gwordgrams=0 then
 	wngs=6
